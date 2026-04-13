@@ -135,7 +135,10 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
     }, [open]);
 
     return React.createElement(Dialog, { open, onOpenChange },
-      React.createElement(DialogContent, { className: 'max-w-md max-h-[85vh] flex flex-col' },
+      React.createElement(DialogContent, {
+        className: 'max-w-md flex flex-col',
+        style: { maxHeight: '85vh' },
+      },
         React.createElement(DialogHeader, null,
           React.createElement(DialogTitle, null,
             selectedFood ? 'Add Food' : `Add to ${MEAL_LABELS[mealType]}`),
@@ -177,7 +180,7 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
               ),
 
               // Results
-              React.createElement(ScrollArea, { className: 'flex-1 -mx-2 min-h-0 max-h-[400px]' },
+              React.createElement(ScrollArea, { className: 'flex-1 -mx-2', style: { maxHeight: '50vh', overflowY: 'auto' } },
                 searching
                   ? React.createElement('div', { className: 'flex items-center justify-center py-8 text-sm text-muted-foreground' }, 'Searching...')
                   : query && results.length === 0

@@ -158,24 +158,28 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
         const promises: Promise<NormalizedFood[]>[] = [];
 
         if (source === 'all' || source === 'openfoodfacts') {
-          promises.push(searchOpenFoodFacts(q));
+          promises.push(searchOpenFoodFacts(q).catch(err => {
+            console.warn('Open Food Facts search failed:', err.message);
+            return [] as NormalizedFood[];
+          }));
         }
 
         if (source === 'all' || source === 'usda') {
           const apiKey = await getApi().core.getApiKey('usda');
           if (apiKey) {
-            promises.push(searchUSDA(q, apiKey));
+            promises.push(searchUSDA(q, apiKey).catch(err => {
+              console.warn('USDA search failed:', err.message);
+              return [] as NormalizedFood[];
+            }));
           }
         }
 
         if (source === 'all' || source === 'custom') {
           const lower = q.toLowerCase();
-          // Custom foods
           const customs = await getStorage().getAllCustomFoods();
           promises.push(Promise.resolve(
             customs.filter(f => f.name.toLowerCase().includes(lower) || f.brand?.toLowerCase().includes(lower))
           ));
-          // Recipes as food
           const recipes = await getStorage().getAllRecipes();
           const matchingRecipes = recipes
             .filter(r => r.name.toLowerCase().includes(lower) && r.ingredients.length > 0)
