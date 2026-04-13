@@ -140,6 +140,7 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
     const [searching, setSearching] = useState(false);
     const [source, setSource] = useState<'all' | 'openfoodfacts' | 'usda' | 'custom'>('all');
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchIdRef = useRef(0);
 
     useEffect(() => {
       const s = getStorage();
@@ -154,44 +155,53 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
         return;
       }
       setSearching(true);
-      try {
-        const promises: Promise<NormalizedFood[]>[] = [];
+      const thisSearchId = ++searchIdRef.current;
+      const allResults: NormalizedFood[] = [];
 
-        if (source === 'all' || source === 'openfoodfacts') {
-          promises.push(searchOpenFoodFacts(q).catch(err => {
-            console.warn('Open Food Facts search failed:', err.message);
-            return [] as NormalizedFood[];
-          }));
+      // Open Food Facts
+      if (source === 'all' || source === 'openfoodfacts') {
+        try {
+          const foods = await searchOpenFoodFacts(q);
+          allResults.push(...foods);
+        } catch (err: any) {
+          console.warn('Open Food Facts search failed:', err.message);
         }
+      }
 
-        if (source === 'all' || source === 'usda') {
+      // USDA
+      if (source === 'all' || source === 'usda') {
+        try {
           const apiKey = await getApi().core.getApiKey('usda');
           if (apiKey) {
-            promises.push(searchUSDA(q, apiKey).catch(err => {
-              console.warn('USDA search failed:', err.message);
-              return [] as NormalizedFood[];
-            }));
+            const foods = await searchUSDA(q, apiKey);
+            allResults.push(...foods);
           }
+        } catch (err: any) {
+          console.warn('USDA search failed:', err.message);
         }
+      }
 
-        if (source === 'all' || source === 'custom') {
+      // Custom foods + recipes
+      if (source === 'all' || source === 'custom') {
+        try {
           const lower = q.toLowerCase();
           const customs = await getStorage().getAllCustomFoods();
-          promises.push(Promise.resolve(
-            customs.filter(f => f.name.toLowerCase().includes(lower) || f.brand?.toLowerCase().includes(lower))
+          allResults.push(...customs.filter(f =>
+            f.name.toLowerCase().includes(lower) || f.brand?.toLowerCase().includes(lower)
           ));
           const recipes = await getStorage().getAllRecipes();
-          const matchingRecipes = recipes
+          allResults.push(...recipes
             .filter(r => r.name.toLowerCase().includes(lower) && r.ingredients.length > 0)
-            .map(recipeToFood);
-          promises.push(Promise.resolve(matchingRecipes));
+            .map(recipeToFood)
+          );
+        } catch (err: any) {
+          console.warn('Custom food search failed:', err.message);
         }
+      }
 
-        const allResults = await Promise.all(promises);
-        setResults(allResults.flat());
-      } catch (err) {
-        console.error('Food search error:', err);
-      } finally {
+      // Only update if this is still the latest search
+      if (thisSearchId === searchIdRef.current) {
+        setResults(allResults);
         setSearching(false);
       }
     }, [source]);
@@ -199,7 +209,7 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
     const debouncedSearch = useCallback((q: string) => {
       setQuery(q);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => search(q), 400);
+      debounceRef.current = setTimeout(() => search(q), 700);
     }, [search]);
 
     return {
