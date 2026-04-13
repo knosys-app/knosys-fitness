@@ -2,17 +2,19 @@ import type { SharedDependencies } from '../types';
 import { getStorage } from '../hooks/use-fitness-store';
 import { createOnboarding } from './onboarding';
 import { createDailyDiary } from './daily-diary';
+import { createExercisePage } from './exercise-page';
 import { createWeightTracker } from './weight-tracker';
 import { createProgressCharts } from './progress-charts';
 import { createRecipeBuilder } from './recipe-builder';
 import { createMealTemplates } from './meal-templates';
 
 export function createFitnessPage(Shared: SharedDependencies) {
-  const { React, Tabs, TabsContent, TabsList, TabsTrigger, ScrollArea, lucideIcons } = Shared;
-  const { Utensils, Scale, BarChart3, ChefHat, BookmarkPlus } = lucideIcons;
+  const { React, Tabs, TabsContent, TabsList, TabsTrigger, lucideIcons } = Shared;
+  const { Utensils, Scale, BarChart3, ChefHat, BookmarkPlus, Flame } = lucideIcons;
 
   const Onboarding = createOnboarding(Shared);
   const DailyDiary = createDailyDiary(Shared);
+  const ExercisePage = createExercisePage(Shared);
   const WeightTracker = createWeightTracker(Shared);
   const ProgressCharts = createProgressCharts(Shared);
   const RecipeBuilder = createRecipeBuilder(Shared);
@@ -27,14 +29,12 @@ export function createFitnessPage(Shared: SharedDependencies) {
       });
     }, []);
 
-    // Loading state
     if (setupComplete === null) {
       return React.createElement('div', {
         className: 'flex items-center justify-center h-full text-muted-foreground',
       }, 'Loading...');
     }
 
-    // Show onboarding if not set up
     if (!setupComplete) {
       return React.createElement(Onboarding, {
         onComplete: () => setSetupComplete(true),
@@ -47,6 +47,10 @@ export function createFitnessPage(Shared: SharedDependencies) {
           React.createElement(TabsTrigger, { value: 'diary', className: 'gap-1.5' },
             React.createElement(Utensils, { className: 'h-3.5 w-3.5' }),
             'Diary',
+          ),
+          React.createElement(TabsTrigger, { value: 'exercise', className: 'gap-1.5' },
+            React.createElement(Flame, { className: 'h-3.5 w-3.5' }),
+            'Exercise',
           ),
           React.createElement(TabsTrigger, { value: 'weight', className: 'gap-1.5' },
             React.createElement(Scale, { className: 'h-3.5 w-3.5' }),
@@ -68,6 +72,9 @@ export function createFitnessPage(Shared: SharedDependencies) {
 
         React.createElement(TabsContent, { value: 'diary', className: 'flex-1 mt-0' },
           React.createElement(DailyDiary, null),
+        ),
+        React.createElement(TabsContent, { value: 'exercise', className: 'flex-1 mt-0' },
+          React.createElement(ExercisePage, null),
         ),
         React.createElement(TabsContent, { value: 'weight', className: 'flex-1 mt-0 p-4' },
           React.createElement('div', { className: 'max-w-2xl mx-auto' },

@@ -9,7 +9,6 @@ import { createMealSection } from './meal-section';
 import { createFoodSearchDialog } from './food-search';
 import { createFoodEntryForm } from './food-entry-form';
 import { createWaterTracker } from './water-tracker';
-import { createExerciseLog } from './exercise-log';
 
 export function createDailyDiary(Shared: SharedDependencies) {
   const { React, ScrollArea, Button, lucideIcons, dateFns, cn } = Shared;
@@ -37,7 +36,6 @@ export function createDailyDiary(Shared: SharedDependencies) {
   const FoodSearchDialog = createFoodSearchDialog(Shared);
   const FoodEntryForm = createFoodEntryForm(Shared);
   const WaterTracker = createWaterTracker(Shared);
-  const ExerciseLog = createExerciseLog(Shared);
   const useDiary = createUseDiary(Shared);
 
   return function DailyDiary() {
@@ -123,17 +121,8 @@ export function createDailyDiary(Shared: SharedDependencies) {
             ),
           ),
 
-          // Exercise
-          React.createElement(AnimatedItem, { delay: 550 },
-            React.createElement(ExerciseLog, {
-              exercise: diary.exercise,
-              onAddExercise: diary.addExercise,
-              onRemoveExercise: diary.removeExercise,
-            }),
-          ),
-
           // Water
-          React.createElement(AnimatedItem, { delay: 650 },
+          React.createElement(AnimatedItem, { delay: 550 },
             React.createElement(WaterTracker, {
               water: diary.water,
               goals: diary.goals,

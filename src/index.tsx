@@ -2,24 +2,22 @@ import type { PluginAPI, SharedDependencies } from './types';
 import { initStore } from './hooks/use-fitness-store';
 import { createFitnessPage } from './components/fitness-page';
 import { createSettingsPanel } from './components/settings';
-import { createDashboardWidget } from './components/dashboard-widget';
+import { createDashboardWidgets } from './components/dashboard-widget';
 
 export function activate(api: PluginAPI, Shared: SharedDependencies) {
-  // Initialize the storage layer
   initStore(api);
 
-  // Create components
   const FitnessPage = createFitnessPage(Shared);
   const SettingsPanel = createSettingsPanel(Shared);
-  const DashboardWidget = createDashboardWidget(Shared);
+  const { NutritionWidget, WaterWidget, WeightWidget, StreakWidget } = createDashboardWidgets(Shared);
 
-  // Register route
+  // Route
   api.ui.registerRoute({
     path: '/fitness',
     component: FitnessPage,
   });
 
-  // Register sidebar item
+  // Sidebar
   api.ui.registerSidebarItem({
     id: 'fitness',
     title: 'Fitness',
@@ -28,18 +26,36 @@ export function activate(api: PluginAPI, Shared: SharedDependencies) {
     order: 50,
   });
 
-  // Register settings panel
+  // Settings
   api.ui.registerSettingsPanel({
     id: 'fitness-settings',
     component: SettingsPanel,
     order: 50,
   });
 
-  // Register dashboard widget
+  // Dashboard widgets — four registerable widgets
   api.ui.registerWidget({
     id: 'fitness-today',
     title: 'Today\'s Nutrition',
-    component: DashboardWidget,
+    component: NutritionWidget,
+    defaultSize: 'small',
+  });
+  api.ui.registerWidget({
+    id: 'fitness-water',
+    title: 'Water Today',
+    component: WaterWidget,
+    defaultSize: 'small',
+  });
+  api.ui.registerWidget({
+    id: 'fitness-weight',
+    title: 'Weight Trend',
+    component: WeightWidget,
+    defaultSize: 'small',
+  });
+  api.ui.registerWidget({
+    id: 'fitness-streak',
+    title: 'Logging Streak',
+    component: StreakWidget,
     defaultSize: 'small',
   });
 }
