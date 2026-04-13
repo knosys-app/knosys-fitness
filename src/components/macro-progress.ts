@@ -112,7 +112,6 @@ export function createMacroProgress(Shared: SharedDependencies) {
                   if (arc.fraction <= 0) return null;
                   const isAnimated = animatedCount > i;
                   const arcLen = arc.fraction * circumference;
-                  // Rotate each arc to start where the previous one ended
                   const rotationDeg = -90 + arc.startFraction * 360;
                   return React.createElement('circle', {
                     key: i,
@@ -122,9 +121,12 @@ export function createMacroProgress(Shared: SharedDependencies) {
                     strokeDasharray: isAnimated
                       ? `${arcLen} ${circumference - arcLen}`
                       : `0 ${circumference}`,
-                    strokeLinecap: i === arcs.length - 1 && usedFraction < 0.98 ? 'round' : 'butt',
+                    strokeLinecap: 'butt',
                     transform: `rotate(${rotationDeg} 40 40)`,
-                    style: { transition: 'stroke-dasharray 450ms cubic-bezier(0.4, 0, 0.2, 1)' },
+                    style: {
+                      opacity: isAnimated ? 1 : 0,
+                      transition: 'stroke-dasharray 450ms cubic-bezier(0.4, 0, 0.2, 1), opacity 0ms',
+                    },
                   });
                 }),
           ),
