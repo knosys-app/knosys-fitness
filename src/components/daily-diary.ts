@@ -13,6 +13,22 @@ import { createExerciseLog } from './exercise-log';
 
 export function createDailyDiary(Shared: SharedDependencies) {
   const { React, ScrollArea, Button, lucideIcons, dateFns, cn } = Shared;
+
+  // Staggered fade-in wrapper
+  function AnimatedItem({ delay, children }: { delay: number; children: any }) {
+    const [visible, setVisible] = React.useState(false);
+    React.useEffect(() => {
+      const t = setTimeout(() => setVisible(true), delay);
+      return () => clearTimeout(t);
+    }, [delay]);
+    return React.createElement('div', {
+      style: {
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(12px)',
+        transition: 'opacity 400ms ease, transform 400ms ease',
+      },
+    }, children);
+  }
   const { Plus } = lucideIcons;
 
   const DateNavigator = createDateNavigator(Shared);
@@ -84,7 +100,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
       // Scrollable content
       React.createElement(ScrollArea, { className: 'flex-1' },
         React.createElement('div', { className: 'p-4 space-y-4 max-w-2xl mx-auto' },
-          // Calorie & macro summary
+          // Calorie & macro summary (has its own animations)
           React.createElement(MacroProgress, {
             calories: totals.calories,
             protein_g: totals.protein_g,
@@ -93,33 +109,38 @@ export function createDailyDiary(Shared: SharedDependencies) {
             goals: diary.goals,
           }),
 
-          // Meal sections
-          ...MEAL_TYPES.map(mealType =>
-            React.createElement(MealSection, {
-              key: mealType,
-              mealType,
-              meal: diary.meals[mealType],
-              onAddFood: () => handleAddFood(mealType),
-              onRemoveEntry: (id: string) => diary.removeFoodEntry(mealType, id),
-              onUpdateServings: (id: string, servings: number) => diary.updateFoodEntry(mealType, id, servings),
-              onSaveAsTemplate: () => handleSaveAsTemplate(mealType),
-            }),
+          // Meal sections — staggered
+          ...MEAL_TYPES.map((mealType, i) =>
+            React.createElement(AnimatedItem, { key: mealType, delay: 150 + i * 100 },
+              React.createElement(MealSection, {
+                mealType,
+                meal: diary.meals[mealType],
+                onAddFood: () => handleAddFood(mealType),
+                onRemoveEntry: (id: string) => diary.removeFoodEntry(mealType, id),
+                onUpdateServings: (id: string, servings: number) => diary.updateFoodEntry(mealType, id, servings),
+                onSaveAsTemplate: () => handleSaveAsTemplate(mealType),
+              }),
+            ),
           ),
 
           // Exercise
-          React.createElement(ExerciseLog, {
-            exercise: diary.exercise,
-            onAddExercise: diary.addExercise,
-            onRemoveExercise: diary.removeExercise,
-          }),
+          React.createElement(AnimatedItem, { delay: 550 },
+            React.createElement(ExerciseLog, {
+              exercise: diary.exercise,
+              onAddExercise: diary.addExercise,
+              onRemoveExercise: diary.removeExercise,
+            }),
+          ),
 
           // Water
-          React.createElement(WaterTracker, {
-            water: diary.water,
-            goals: diary.goals,
-            onAddWater: diary.addWater,
-            onSetWater: diary.setWaterAmount,
-          }),
+          React.createElement(AnimatedItem, { delay: 650 },
+            React.createElement(WaterTracker, {
+              water: diary.water,
+              goals: diary.goals,
+              onAddWater: diary.addWater,
+              onSetWater: diary.setWaterAmount,
+            }),
+          ),
         ),
       ),
 
