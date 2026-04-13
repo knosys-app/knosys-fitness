@@ -217,7 +217,10 @@ export interface Goals {
 
 /** User profile */
 export interface UserProfile {
+  setup_complete?: boolean;
   height_cm?: number;
+  current_weight_kg?: number;
+  goal_weight_kg?: number;
   birth_date?: string;
   sex?: 'male' | 'female' | 'other';
   activity_level?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active';

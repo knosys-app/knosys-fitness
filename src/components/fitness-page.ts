@@ -1,4 +1,6 @@
 import type { SharedDependencies } from '../types';
+import { getStorage } from '../hooks/use-fitness-store';
+import { createOnboarding } from './onboarding';
 import { createDailyDiary } from './daily-diary';
 import { createWeightTracker } from './weight-tracker';
 import { createProgressCharts } from './progress-charts';
@@ -9,6 +11,7 @@ export function createFitnessPage(Shared: SharedDependencies) {
   const { React, Tabs, TabsContent, TabsList, TabsTrigger, ScrollArea, lucideIcons } = Shared;
   const { Utensils, Scale, BarChart3, ChefHat, BookmarkPlus } = lucideIcons;
 
+  const Onboarding = createOnboarding(Shared);
   const DailyDiary = createDailyDiary(Shared);
   const WeightTracker = createWeightTracker(Shared);
   const ProgressCharts = createProgressCharts(Shared);
@@ -16,6 +19,28 @@ export function createFitnessPage(Shared: SharedDependencies) {
   const MealTemplates = createMealTemplates(Shared);
 
   return function FitnessPage() {
+    const [setupComplete, setSetupComplete] = React.useState<boolean | null>(null);
+
+    React.useEffect(() => {
+      getStorage().getProfile().then(profile => {
+        setSetupComplete(profile.setup_complete === true);
+      });
+    }, []);
+
+    // Loading state
+    if (setupComplete === null) {
+      return React.createElement('div', {
+        className: 'flex items-center justify-center h-full text-muted-foreground',
+      }, 'Loading...');
+    }
+
+    // Show onboarding if not set up
+    if (!setupComplete) {
+      return React.createElement(Onboarding, {
+        onComplete: () => setSetupComplete(true),
+      });
+    }
+
     return React.createElement('div', { className: 'flex flex-col h-full' },
       React.createElement(Tabs, { defaultValue: 'diary', className: 'flex flex-col h-full' },
         React.createElement(TabsList, { className: 'mx-4 mt-2 w-auto self-start' },
