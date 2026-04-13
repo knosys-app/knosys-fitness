@@ -52,6 +52,7 @@ function normalizeUSDA(food: USDAFood): NormalizedFood {
     name: food.description,
     brand: brand ?? undefined,
     serving_size_g: servingG,
+    serving_unit: 'g' as const,
     serving_label: servingLabel,
     calories: Math.round(getNutrient('calories')),
     protein_g: round1(getNutrient('protein_g')),

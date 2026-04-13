@@ -129,6 +129,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
         onOpenChange: setSearchOpen,
         mealType: activeMeal,
         onAddFood: handleFoodSelected,
+        onCreateCustom: () => setCustomFoodOpen(true),
       }),
       React.createElement(FoodEntryForm, {
         open: customFoodOpen,

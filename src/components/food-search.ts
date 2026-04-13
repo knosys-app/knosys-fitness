@@ -106,11 +106,12 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
     );
   }
 
-  return function FoodSearchDialog({ open, onOpenChange, mealType, onAddFood }: {
+  return function FoodSearchDialog({ open, onOpenChange, mealType, onAddFood, onCreateCustom }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     mealType: MealType;
     onAddFood: (food: NormalizedFood, servings: number) => void;
+    onCreateCustom?: () => void;
   }) {
     const { query, setQuery, results, searching, source, setSource, recentFoods, frequentFoods, customFoods } = useFoodSearch();
     const [selectedFood, setSelectedFood] = React.useState<NormalizedFood | null>(null);
@@ -180,7 +181,7 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
               ),
 
               // Results
-              React.createElement(ScrollArea, { className: 'flex-1 -mx-2', style: { maxHeight: '50vh', overflowY: 'auto' } },
+              React.createElement('div', { style: { maxHeight: '50vh', overflowY: 'auto', marginLeft: '-8px', marginRight: '-8px' } },
                 searching
                   ? React.createElement('div', { className: 'flex items-center justify-center py-8 text-sm text-muted-foreground' }, 'Searching...')
                   : query && results.length === 0
@@ -206,6 +207,17 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
                         ),
                       ),
                     ),
+              ),
+
+              // Create Custom Food button — always visible
+              onCreateCustom && React.createElement(Separator, { className: 'my-2' }),
+              onCreateCustom && React.createElement(Button, {
+                variant: 'outline',
+                className: 'w-full',
+                onClick: () => { onOpenChange(false); onCreateCustom(); },
+              },
+                React.createElement(Plus, { className: 'h-4 w-4 mr-2' }),
+                'Create Custom Food',
               ),
             ),
       ),

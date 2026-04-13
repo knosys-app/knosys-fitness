@@ -146,6 +146,8 @@ export const MEAL_LABELS: Record<MealType, string> = {
 
 export type FoodSource = 'openfoodfacts' | 'usda' | 'custom' | 'recipe';
 
+export type ServingUnit = 'g' | 'mg' | 'oz' | 'lb' | 'ml' | 'l' | 'fl_oz' | 'cup' | 'tbsp' | 'tsp';
+
 /** Unified food representation across all sources */
 export interface NormalizedFood {
   id: string;
@@ -153,6 +155,7 @@ export interface NormalizedFood {
   name: string;
   brand?: string;
   serving_size_g: number;
+  serving_unit?: ServingUnit;
   serving_label: string;
   calories: number;
   protein_g: number;
