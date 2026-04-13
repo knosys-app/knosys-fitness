@@ -41,13 +41,17 @@ export function createMacroProgress(Shared: SharedDependencies) {
   return function MacroProgress({ calories, protein_g, carbs_g, fat_g, goals }: {
     calories: number; protein_g: number; carbs_g: number; fat_g: number; goals: Goals;
   }) {
-    const [ringAnimated, setRingAnimated] = React.useState(false);
     const [fadeIn, setFadeIn] = React.useState(false);
+    // Track which arcs have animated (0 = none, 1 = protein, 2 = +carbs, 3 = +fat)
+    const [animatedCount, setAnimatedCount] = React.useState(0);
 
     React.useEffect(() => {
       requestAnimationFrame(() => {
         setFadeIn(true);
-        setTimeout(() => setRingAnimated(true), 100);
+        // Stagger each arc sequentially so only one animates at a time
+        setTimeout(() => setAnimatedCount(1), 150);
+        setTimeout(() => setAnimatedCount(2), 650);
+        setTimeout(() => setAnimatedCount(3), 1100);
       });
     }, []);
 
@@ -98,25 +102,31 @@ export function createMacroProgress(Shared: SharedDependencies) {
                   stroke: 'hsl(var(--destructive))',
                   strokeWidth: 6,
                   strokeDasharray: `${circumference}`,
-                  strokeDashoffset: ringAnimated ? '0' : `${circumference}`,
+                  strokeDashoffset: animatedCount > 0 ? '0' : `${circumference}`,
                   strokeLinecap: 'round',
                   transform: 'rotate(-90 40 40)',
-                  style: { transition: 'stroke-dashoffset 1000ms cubic-bezier(0.4, 0, 0.2, 1)' },
+                  style: { transition: 'stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)' },
                 })
-              // Normal: three macro-colored arcs
-              : arcs.map((arc, i) =>
-                  arc.fraction > 0 ? React.createElement('circle', {
+              // Normal: three macro-colored arcs — each grows sequentially
+              : arcs.map((arc, i) => {
+                  if (arc.fraction <= 0) return null;
+                  const isAnimated = animatedCount > i;
+                  const arcLen = arc.fraction * circumference;
+                  // Rotate each arc to start where the previous one ended
+                  const rotationDeg = -90 + arc.startFraction * 360;
+                  return React.createElement('circle', {
                     key: i,
                     cx: 40, cy: 40, r: radius, fill: 'none',
                     stroke: arc.color,
                     strokeWidth: 6,
-                    strokeDasharray: `${arc.fraction * circumference} ${circumference}`,
-                    strokeDashoffset: ringAnimated ? `${-arc.startFraction * circumference}` : `${circumference}`,
+                    strokeDasharray: isAnimated
+                      ? `${arcLen} ${circumference - arcLen}`
+                      : `0 ${circumference}`,
                     strokeLinecap: i === arcs.length - 1 && usedFraction < 0.98 ? 'round' : 'butt',
-                    transform: 'rotate(-90 40 40)',
-                    style: { transition: `stroke-dashoffset ${800 + i * 200}ms cubic-bezier(0.4, 0, 0.2, 1) ${arc.delay}ms` },
-                  }) : null
-                ),
+                    transform: `rotate(${rotationDeg} 40 40)`,
+                    style: { transition: 'stroke-dasharray 450ms cubic-bezier(0.4, 0, 0.2, 1)' },
+                  });
+                }),
           ),
           React.createElement('div', { className: 'absolute text-center' },
             React.createElement('div', { className: 'text-lg font-bold leading-tight' }, formatCal(remaining)),
