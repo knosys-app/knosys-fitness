@@ -34,69 +34,106 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
     );
   }
 
+  const QUICK_SERVINGS = [0.5, 1, 1.5, 2, 3];
+
   function ServingsSelector({ food, mealType, onAdd, onCancel }: {
     food: NormalizedFood; mealType: MealType; onAdd: (servings: number) => void; onCancel: () => void;
   }) {
     const [servings, setServings] = React.useState(1);
+    const [nutritionOpen, setNutritionOpen] = React.useState(false);
     const cal = Math.round(food.calories * servings);
     const p = Math.round(food.protein_g * servings * 10) / 10;
     const c = Math.round(food.carbs_g * servings * 10) / 10;
     const f = Math.round(food.fat_g * servings * 10) / 10;
 
-    return React.createElement('div', { className: 'space-y-4 p-1' },
+    const sourceLabel =
+      food.source === 'openfoodfacts' ? 'Open Food Facts' :
+      food.source === 'usda' ? 'USDA' :
+      food.source === 'custom' ? 'Custom' : 'Recipe';
+
+    return React.createElement('div', { className: 'space-y-3 p-1' },
       React.createElement('div', null,
-        React.createElement('div', { className: 'text-base font-semibold' }, food.name),
+        React.createElement('div', { className: 'text-base font-semibold leading-tight' }, food.name),
         food.brand && React.createElement('div', { className: 'text-sm text-muted-foreground' }, food.brand),
-        React.createElement(Badge, { variant: 'secondary', className: 'mt-1 text-xs' },
-          food.source === 'openfoodfacts' ? 'Open Food Facts' :
-          food.source === 'usda' ? 'USDA' :
-          food.source === 'custom' ? 'Custom' : 'Recipe',
-        ),
+        React.createElement(Badge, { variant: 'secondary', className: 'mt-1.5 text-[10px]' }, sourceLabel),
       ),
 
       React.createElement(Separator, null),
 
-      // Nutrition for selected servings
+      // Nutrition for selected servings — prominent display
       React.createElement('div', { className: 'grid grid-cols-4 gap-2 text-center' },
         ...([
-          { label: 'Calories', value: formatCal(cal), color: '' },
-          { label: 'Protein', value: formatG(p), color: 'text-blue-500' },
-          { label: 'Carbs', value: formatG(c), color: 'text-amber-500' },
-          { label: 'Fat', value: formatG(f), color: 'text-red-500' },
+          { label: 'cal', value: formatCal(cal), color: '' },
+          { label: 'protein', value: formatG(p), color: 'text-blue-500' },
+          { label: 'carbs', value: formatG(c), color: 'text-amber-500' },
+          { label: 'fat', value: formatG(f), color: 'text-red-500' },
         ]).map(({ label, value, color }) =>
           React.createElement('div', { key: label },
-            React.createElement('div', { className: cn('text-lg font-bold', color) }, value),
-            React.createElement('div', { className: 'text-[10px] text-muted-foreground' }, label),
+            React.createElement('div', { className: cn('text-xl font-bold tabular-nums', color) }, value),
+            React.createElement('div', {
+              style: { fontSize: '9px', color: 'hsl(var(--muted-foreground))', letterSpacing: '0.05em', textTransform: 'uppercase' },
+            }, label),
           )
         ),
       ),
 
-      // Nutrition label (expandable)
-      React.createElement(NutritionLabel, { food, servings }),
-
-      // Servings control
-      React.createElement('div', { className: 'flex items-center justify-between' },
-        React.createElement(Label, null, 'Servings'),
-        React.createElement('div', { className: 'flex items-center gap-2' },
-          React.createElement(Button, {
-            variant: 'outline', size: 'icon', className: 'h-8 w-8',
-            onClick: () => setServings(Math.max(0.25, servings - 0.25)),
-          }, React.createElement(Minus, { className: 'h-3 w-3' })),
-          React.createElement(Input, {
-            type: 'number', min: 0.25, step: 0.25, value: servings,
-            onChange: (e: any) => setServings(Math.max(0.25, parseFloat(e.target.value) || 0.25)),
-            className: 'w-20 text-center h-8',
-          }),
-          React.createElement(Button, {
-            variant: 'outline', size: 'icon', className: 'h-8 w-8',
-            onClick: () => setServings(servings + 0.25),
-          }, React.createElement(Plus, { className: 'h-3 w-3' })),
+      // Servings control — input + quick-select chips
+      React.createElement('div', { className: 'space-y-2' },
+        React.createElement('div', { className: 'flex items-center justify-between' },
+          React.createElement(Label, { className: 'text-xs' }, 'Servings'),
+          React.createElement('div', { className: 'flex items-center gap-1.5' },
+            React.createElement(Input, {
+              type: 'number', min: 0.25, step: 0.25, value: servings,
+              onChange: (e: any) => {
+                const v = parseFloat(e.target.value);
+                setServings(isNaN(v) || v <= 0 ? 0.25 : v);
+              },
+              className: 'w-20 h-8 text-center tabular-nums',
+            }),
+            React.createElement('div', {
+              style: { fontSize: '11px', color: 'hsl(var(--muted-foreground))' },
+            }, `× ${food.serving_label}`),
+          ),
         ),
-      ),
-      React.createElement('div', { className: 'text-xs text-muted-foreground text-center' },
-        `${servings} × ${food.serving_label} (${Math.round(food.serving_size_g * servings)}g)`),
 
-      React.createElement('div', { className: 'flex gap-2' },
+        // Quick-select chips
+        React.createElement('div', { className: 'flex flex-wrap gap-1' },
+          ...QUICK_SERVINGS.map(v =>
+            React.createElement('button', {
+              key: v,
+              onClick: () => setServings(v),
+              className: cn(
+                'text-xs px-2.5 py-1 rounded-full border transition-colors tabular-nums',
+                servings === v
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background hover:bg-muted border-border',
+              ),
+            }, v === 0.5 ? '½' : v === 1.5 ? '1½' : String(v)),
+          ),
+        ),
+
+        React.createElement('div', {
+          className: 'text-xs text-muted-foreground tabular-nums',
+        }, `Total: ${Math.round(food.serving_size_g * servings)}g`),
+      ),
+
+      // Collapsible full nutrition label
+      React.createElement('button', {
+        onClick: () => setNutritionOpen(!nutritionOpen),
+        className: 'text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors',
+      },
+        React.createElement('span', {
+          style: {
+            display: 'inline-block',
+            transform: nutritionOpen ? 'rotate(90deg)' : 'rotate(0)',
+            transition: 'transform 150ms cubic-bezier(0.4, 0, 0.2, 1)',
+          },
+        }, '▸'),
+        'Full nutrition facts',
+      ),
+      nutritionOpen && React.createElement(NutritionLabel, { food, servings }),
+
+      React.createElement('div', { className: 'flex gap-2 pt-1' },
         React.createElement(Button, { variant: 'outline', className: 'flex-1', onClick: onCancel }, 'Cancel'),
         React.createElement(Button, {
           className: 'flex-1',
@@ -185,7 +222,21 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
                 searching
                   ? React.createElement('div', { className: 'flex items-center justify-center py-8 text-sm text-muted-foreground' }, 'Searching...')
                   : query && results.length === 0
-                  ? React.createElement('div', { className: 'flex items-center justify-center py-8 text-sm text-muted-foreground' }, 'No results found')
+                  ? React.createElement('div', { className: 'flex flex-col items-center justify-center py-8 px-6 text-center space-y-3' },
+                      React.createElement(Search, { className: 'h-8 w-8 text-muted-foreground/40' }),
+                      React.createElement('div', null,
+                        React.createElement('div', { className: 'text-sm font-medium' }, 'No matches found'),
+                        React.createElement('div', { className: 'text-xs text-muted-foreground mt-0.5' },
+                          `Nothing matches "${query}"`),
+                      ),
+                      onCreateCustom && React.createElement(Button, {
+                        size: 'sm', variant: 'default',
+                        onClick: () => { onOpenChange(false); onCreateCustom(); },
+                      },
+                        React.createElement(Plus, { className: 'h-4 w-4 mr-1' }),
+                        `Create "${query}" as custom food`,
+                      ),
+                    )
                   : query && results.length > 0
                   ? React.createElement('div', { className: 'px-2' },
                       ...results.map(food =>

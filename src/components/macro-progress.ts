@@ -56,7 +56,9 @@ export function createMacroProgress(Shared: SharedDependencies) {
     }, []);
 
     const remaining = Math.max(0, goals.calories - calories);
-    const radius = 34;
+    const radius = 44;
+    const svgSize = 104;
+    const center = svgSize / 2;
     const circumference = 2 * Math.PI * radius;
     const overBudget = calories > goals.calories;
 
@@ -89,22 +91,22 @@ export function createMacroProgress(Shared: SharedDependencies) {
       // Calorie ring summary
       React.createElement('div', { className: 'flex items-center gap-4' },
         React.createElement('div', { className: 'relative flex items-center justify-center' },
-          React.createElement('svg', { width: 80, height: 80, viewBox: '0 0 80 80' },
+          React.createElement('svg', { width: svgSize, height: svgSize, viewBox: `0 0 ${svgSize} ${svgSize}` },
             // Background ring
             React.createElement('circle', {
-              cx: 40, cy: 40, r: radius, fill: 'none',
-              stroke: 'hsl(var(--secondary))', strokeWidth: 6,
+              cx: center, cy: center, r: radius, fill: 'none',
+              stroke: 'hsl(var(--secondary))', strokeWidth: 7,
             }),
             // Over budget: single destructive ring
             overBudget
               ? React.createElement('circle', {
-                  cx: 40, cy: 40, r: radius, fill: 'none',
+                  cx: center, cy: center, r: radius, fill: 'none',
                   stroke: 'hsl(var(--destructive))',
-                  strokeWidth: 6,
+                  strokeWidth: 7,
                   strokeDasharray: `${circumference}`,
                   strokeDashoffset: animatedCount > 0 ? '0' : `${circumference}`,
                   strokeLinecap: 'round',
-                  transform: 'rotate(-90 40 40)',
+                  transform: `rotate(-90 ${center} ${center})`,
                   style: { transition: 'stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)' },
                 })
               // Normal: three macro-colored arcs — each grows sequentially
@@ -115,14 +117,14 @@ export function createMacroProgress(Shared: SharedDependencies) {
                   const rotationDeg = -90 + arc.startFraction * 360;
                   return React.createElement('circle', {
                     key: i,
-                    cx: 40, cy: 40, r: radius, fill: 'none',
+                    cx: center, cy: center, r: radius, fill: 'none',
                     stroke: arc.color,
-                    strokeWidth: 6,
+                    strokeWidth: 7,
                     strokeDasharray: isAnimated
                       ? `${arcLen} ${circumference - arcLen}`
                       : `0 ${circumference}`,
                     strokeLinecap: 'butt',
-                    transform: `rotate(${rotationDeg} 40 40)`,
+                    transform: `rotate(${rotationDeg} ${center} ${center})`,
                     style: {
                       opacity: isAnimated ? 1 : 0,
                       transition: 'stroke-dasharray 450ms cubic-bezier(0.4, 0, 0.2, 1), opacity 0ms',
@@ -130,25 +132,41 @@ export function createMacroProgress(Shared: SharedDependencies) {
                   });
                 }),
           ),
-          React.createElement('div', { className: 'absolute text-center' },
-            React.createElement('div', { className: 'text-lg font-bold leading-tight' }, formatCal(remaining)),
-            React.createElement('div', {
-              style: { fontSize: '10px', color: 'hsl(var(--muted-foreground))' },
-            }, 'remaining'),
+          React.createElement('div', { className: 'absolute text-center', style: { pointerEvents: 'none' } },
+            overBudget
+              ? React.createElement(React.Fragment, null,
+                  React.createElement('div', {
+                    className: 'text-xl font-bold leading-none tabular-nums',
+                    style: { color: 'hsl(var(--destructive))' },
+                  }, `+${formatCal(calories - goals.calories)}`),
+                  React.createElement('div', {
+                    style: { fontSize: '9px', color: 'hsl(var(--destructive))', marginTop: '2px', letterSpacing: '0.03em' },
+                  }, 'OVER'),
+                )
+              : React.createElement(React.Fragment, null,
+                  React.createElement('div', {
+                    className: 'text-2xl font-bold leading-none tabular-nums',
+                  }, formatCal(remaining)),
+                  React.createElement('div', {
+                    style: { fontSize: '9px', color: 'hsl(var(--muted-foreground))', marginTop: '3px', letterSpacing: '0.05em', textTransform: 'uppercase' },
+                  }, 'remaining'),
+                ),
           ),
         ),
         React.createElement('div', { className: 'flex-1 space-y-1 text-sm' },
           React.createElement('div', { className: 'flex justify-between' },
-            React.createElement('span', { className: 'text-muted-foreground' }, 'Base Goal'),
-            React.createElement('span', null, formatCal(goals.calories)),
+            React.createElement('span', { className: 'text-muted-foreground' }, 'Goal'),
+            React.createElement('span', { className: 'tabular-nums' }, formatCal(goals.calories)),
           ),
           React.createElement('div', { className: 'flex justify-between' },
             React.createElement('span', { className: 'text-muted-foreground' }, 'Food'),
-            React.createElement('span', null, formatCal(calories)),
+            React.createElement('span', { className: 'tabular-nums' }, formatCal(calories)),
           ),
           React.createElement('div', { className: 'flex justify-between font-medium' },
             React.createElement('span', { className: 'text-muted-foreground' }, 'Remaining'),
-            React.createElement('span', { className: cn(remaining < 0 && 'text-destructive') }, formatCal(remaining)),
+            React.createElement('span', {
+              className: cn('tabular-nums', overBudget && 'text-destructive'),
+            }, overBudget ? `−${formatCal(calories - goals.calories)}` : formatCal(remaining)),
           ),
         ),
       ),

@@ -59,9 +59,10 @@ export function createDailyDiary(Shared: SharedDependencies) {
       await diary.addFoodEntry(activeMeal, food, servings);
     };
 
-    const handleCustomFoodSaved = (food: NormalizedFood) => {
-      // After saving a custom food, open search dialog so user can add it
-      setSearchOpen(true);
+    const handleCustomFoodSaved = async (food: NormalizedFood) => {
+      // Auto-add the saved custom food to the currently-active meal
+      await diary.addFoodEntry(activeMeal, food, 1);
+      api.ui.showToast(`Added "${food.name}" to ${MEAL_LABELS[activeMeal]}`, 'success');
     };
 
     const handleSaveAsTemplate = async (mealType: MealType) => {

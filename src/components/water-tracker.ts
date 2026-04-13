@@ -43,7 +43,7 @@ export function createWaterTracker(Shared: SharedDependencies) {
     };
 
     return React.createElement(Dialog, { open, onOpenChange },
-      React.createElement(DialogContent, { className: 'max-w-xs' },
+      React.createElement(DialogContent, { className: 'max-w-sm' },
         React.createElement(DialogHeader, null,
           React.createElement(DialogTitle, { className: 'flex items-center gap-2' },
             React.createElement(Droplets, { className: 'h-5 w-5 text-blue-500' }),
