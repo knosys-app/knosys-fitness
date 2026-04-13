@@ -163,9 +163,13 @@ export function createOnboarding(Shared: SharedDependencies) {
     };
 
     return React.createElement('div', {
-      className: 'flex justify-center pt-[8vh] h-full p-4',
+      className: 'flex justify-center px-4 overflow-auto',
+      style: { minHeight: '100%' },
     },
-      React.createElement(Card, { className: 'w-full max-w-md h-fit' },
+      React.createElement(Card, {
+        className: 'w-full max-w-md h-fit',
+        style: { marginTop: '15vh', marginBottom: 'auto' },
+      },
         React.createElement(CardHeader, { className: 'text-center pb-2' },
           React.createElement('div', { className: 'flex justify-center mb-3' },
             React.createElement(Dumbbell, { className: 'h-10 w-10 text-primary' }),
@@ -175,29 +179,69 @@ export function createOnboarding(Shared: SharedDependencies) {
             'Let\'s personalize your fitness tracking'),
         ),
 
-        // Step indicators
-        React.createElement('div', { className: 'flex justify-center gap-6 px-6 pb-2' },
-          ...steps.map((s, i) => {
-            const Icon = s.icon;
-            const active = i === step;
-            const done = i < step;
-            return React.createElement('div', {
-              key: i,
-              className: cn(
-                'flex flex-col items-center gap-1 transition-colors duration-300',
-                active ? 'text-primary' : done ? 'text-primary/60' : 'text-muted-foreground/40',
-              ),
-            },
-              React.createElement('div', {
+        // Step indicators with connecting lines
+        React.createElement('div', { className: 'px-8 pb-3' },
+          // Row of circles and lines
+          React.createElement('div', { className: 'flex items-center justify-center' },
+            ...steps.flatMap((s, i) => {
+              const Icon = s.icon;
+              const active = i === step;
+              const done = i < step;
+              const circle = React.createElement('div', {
+                key: `circle-${i}`,
                 className: cn(
-                  'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all duration-300',
+                  'w-9 h-9 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all duration-300 shrink-0',
                   active ? 'border-primary bg-primary text-primary-foreground scale-110' :
-                  done ? 'border-primary/60 bg-primary/10' : 'border-muted',
+                  done ? 'border-primary/60 bg-primary/10 text-primary/60' : 'border-muted text-muted-foreground/40',
                 ),
-              }, done ? '\u2713' : React.createElement(Icon, { className: 'h-3.5 w-3.5' })),
-              React.createElement('span', { className: 'text-[10px] font-medium' }, s.title),
-            );
-          }),
+              }, done ? '\u2713' : React.createElement(Icon, { className: 'h-4 w-4' }));
+
+              if (i < steps.length - 1) {
+                const line = React.createElement('div', {
+                  key: `line-${i}`,
+                  style: {
+                    height: '2px',
+                    width: '64px',
+                    marginLeft: '8px',
+                    marginRight: '8px',
+                    borderRadius: '9999px',
+                    backgroundColor: done ? 'hsl(var(--primary) / 0.5)' : 'hsl(var(--border))',
+                    transition: 'background-color 300ms',
+                    flexShrink: 0,
+                  },
+                });
+                return [circle, line];
+              }
+              return [circle];
+            }),
+          ),
+          // Row of labels
+          React.createElement('div', { className: 'flex items-start justify-center mt-2' },
+            ...steps.flatMap((s, i) => {
+              const active = i === step;
+              const done = i < step;
+              const label = React.createElement('div', {
+                key: `label-${i}`,
+                className: 'w-9 flex justify-center shrink-0',
+              },
+                React.createElement('span', {
+                  className: cn(
+                    'text-[10px] font-medium whitespace-nowrap transition-colors duration-300',
+                    active ? 'text-primary' : done ? 'text-primary/60' : 'text-muted-foreground/40',
+                  ),
+                }, s.title),
+              );
+
+              if (i < steps.length - 1) {
+                const spacer = React.createElement('div', {
+                  key: `spacer-${i}`,
+                  style: { width: '64px', marginLeft: '8px', marginRight: '8px', flexShrink: 0 },
+                });
+                return [label, spacer];
+              }
+              return [label];
+            }),
+          ),
         ),
 
         React.createElement(Separator, null),
