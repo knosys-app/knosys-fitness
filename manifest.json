@@ -1,0 +1,20 @@
+{
+  "id": "knosys-fitness",
+  "name": "Fitness",
+  "version": "1.0.0",
+  "description": "Calorie and nutrition tracking — food logging, macros, weight, exercise, and more",
+  "author": "knosys-app",
+  "authorUrl": "https://github.com/knosys-app",
+  "minKnosysVersion": "1.0.0",
+  "permissions": ["storage", "network"],
+  "main": "main.js",
+  "requiredApiKeys": [
+    {
+      "id": "usda",
+      "name": "USDA FoodData Central API Key",
+      "description": "For searching the USDA food database. Get a free key at fdc.nal.usda.gov",
+      "required": false,
+      "signupUrl": "https://fdc.nal.usda.gov/api-key-signup.html"
+    }
+  ]
+}
