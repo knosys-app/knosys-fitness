@@ -4,14 +4,15 @@ import { mealTotals, formatCal, formatG, entryNutrients } from '../utils/nutrien
 
 export function createMealSection(Shared: SharedDependencies) {
   const { React, Button, Card, CardContent, CardHeader, CardTitle, lucideIcons, cn } = Shared;
-  const { Plus, Trash2, ChevronDown, ChevronUp } = lucideIcons;
+  const { Plus, Trash2, ChevronDown, ChevronUp, BookmarkPlus } = lucideIcons;
 
-  return function MealSection({ mealType, meal, onAddFood, onRemoveEntry, onUpdateServings }: {
+  return function MealSection({ mealType, meal, onAddFood, onRemoveEntry, onUpdateServings, onSaveAsTemplate }: {
     mealType: MealType;
     meal: MealLog;
     onAddFood: () => void;
     onRemoveEntry: (id: string) => void;
     onUpdateServings: (id: string, servings: number) => void;
+    onSaveAsTemplate?: () => void;
   }) {
     const [expanded, setExpanded] = React.useState(true);
     const totals = mealTotals(meal);
@@ -66,15 +67,26 @@ export function createMealSection(Shared: SharedDependencies) {
           }),
         ),
 
-        // Add food button
-        React.createElement(Button, {
-          variant: 'ghost',
-          size: 'sm',
-          className: 'w-full mt-1 text-muted-foreground hover:text-primary',
-          onClick: onAddFood,
-        },
-          React.createElement(Plus, { className: 'h-4 w-4 mr-1' }),
-          'Add Food',
+        // Action buttons
+        React.createElement('div', { className: 'flex gap-1 mt-1' },
+          React.createElement(Button, {
+            variant: 'ghost',
+            size: 'sm',
+            className: 'flex-1 text-muted-foreground hover:text-primary',
+            onClick: onAddFood,
+          },
+            React.createElement(Plus, { className: 'h-4 w-4 mr-1' }),
+            'Add Food',
+          ),
+          onSaveAsTemplate && meal.entries.length > 0 && React.createElement(Button, {
+            variant: 'ghost',
+            size: 'sm',
+            className: 'text-muted-foreground hover:text-primary',
+            onClick: onSaveAsTemplate,
+          },
+            React.createElement(BookmarkPlus, { className: 'h-4 w-4 mr-1' }),
+            'Save as Template',
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import type { SharedDependencies, NormalizedFood, MealType } from '../types';
 import { MEAL_LABELS } from '../types';
 import { formatCal, formatG } from '../utils/nutrients';
 import { createUseFoodSearch } from '../hooks/use-fitness-store';
+import { createNutritionLabel } from './nutrition-label';
 
 export function createFoodSearchDialog(Shared: SharedDependencies) {
   const {
@@ -12,6 +13,7 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
   const { Search, Plus, Minus, X } = lucideIcons;
 
   const useFoodSearch = createUseFoodSearch(Shared);
+  const NutritionLabel = createNutritionLabel(Shared);
 
   function FoodItem({ food, onSelect }: { food: NormalizedFood; onSelect: (f: NormalizedFood) => void }) {
     return React.createElement('button', {
@@ -69,6 +71,9 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
         ),
       ),
 
+      // Nutrition label (expandable)
+      React.createElement(NutritionLabel, { food, servings }),
+
       // Servings control
       React.createElement('div', { className: 'flex items-center justify-between' },
         React.createElement(Label, null, 'Servings'),
@@ -107,7 +112,7 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
     mealType: MealType;
     onAddFood: (food: NormalizedFood, servings: number) => void;
   }) {
-    const { query, setQuery, results, searching, source, setSource, recentFoods, customFoods } = useFoodSearch();
+    const { query, setQuery, results, searching, source, setSource, recentFoods, frequentFoods, customFoods } = useFoodSearch();
     const [selectedFood, setSelectedFood] = React.useState<NormalizedFood | null>(null);
 
     const handleAdd = (servings: number) => {
@@ -183,10 +188,16 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
                         React.createElement(FoodItem, { key: `${food.source}:${food.id}`, food, onSelect: handleSelect })
                       ),
                     )
-                  : // Show recent foods when no query
+                  : // Show frequent and recent foods when no query
                     React.createElement('div', { className: 'px-2' },
+                      frequentFoods.length > 0 && React.createElement(React.Fragment, null,
+                        React.createElement('div', { className: 'text-xs font-medium text-muted-foreground px-3 py-2' }, 'Frequently Used'),
+                        ...frequentFoods.slice(0, 8).map(food =>
+                          React.createElement(FoodItem, { key: `freq:${food.source}:${food.id}`, food, onSelect: handleSelect })
+                        ),
+                      ),
                       recentFoods.length > 0 && React.createElement(React.Fragment, null,
-                        React.createElement('div', { className: 'text-xs font-medium text-muted-foreground px-3 py-2' }, 'Recent'),
+                        React.createElement('div', { className: 'text-xs font-medium text-muted-foreground px-3 py-2 mt-1' }, 'Recent'),
                         ...recentFoods.slice(0, 10).map(food =>
                           React.createElement(FoodItem, { key: `recent:${food.source}:${food.id}`, food, onSelect: handleSelect })
                         ),

@@ -1,8 +1,8 @@
-import type { SharedDependencies, MealType, NormalizedFood } from '../types';
-import { MEAL_TYPES } from '../types';
+import type { SharedDependencies, MealType, MealTemplate, NormalizedFood } from '../types';
+import { MEAL_TYPES, MEAL_LABELS } from '../types';
 import { dayTotals } from '../utils/nutrients';
-import { toDateKey } from '../utils/date-helpers';
-import { createUseDiary } from '../hooks/use-fitness-store';
+import { toDateKey, uuid } from '../utils/date-helpers';
+import { createUseDiary, getStorage, getApi } from '../hooks/use-fitness-store';
 import { createDateNavigator } from './date-navigator';
 import { createMacroProgress } from './macro-progress';
 import { createMealSection } from './meal-section';
@@ -12,7 +12,7 @@ import { createWaterTracker } from './water-tracker';
 import { createExerciseLog } from './exercise-log';
 
 export function createDailyDiary(Shared: SharedDependencies) {
-  const { React, ScrollArea, Button, lucideIcons, cn } = Shared;
+  const { React, ScrollArea, Button, lucideIcons, dateFns, cn } = Shared;
   const { Plus } = lucideIcons;
 
   const DateNavigator = createDateNavigator(Shared);
@@ -25,6 +25,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
   const useDiary = createUseDiary(Shared);
 
   return function DailyDiary() {
+    const api = getApi();
     const [date, setDate] = React.useState(new Date());
     const dateKey = toDateKey(date);
     const diary = useDiary(dateKey);
@@ -47,6 +48,18 @@ export function createDailyDiary(Shared: SharedDependencies) {
     const handleCustomFoodSaved = (food: NormalizedFood) => {
       // After saving a custom food, open search dialog so user can add it
       setSearchOpen(true);
+    };
+
+    const handleSaveAsTemplate = async (mealType: MealType) => {
+      const meal = diary.meals[mealType];
+      if (meal.entries.length === 0) return;
+      const template: MealTemplate = {
+        id: uuid(),
+        name: `${MEAL_LABELS[mealType]} — ${dateFns.format(date, 'MMM d')}`,
+        items: meal.entries.map(e => ({ food: e.food, servings: e.servings })),
+      };
+      await getStorage().setTemplate(template);
+      api.ui.showToast(`Saved "${template.name}" as template`, 'success');
     };
 
     if (diary.loading) {
@@ -89,6 +102,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
               onAddFood: () => handleAddFood(mealType),
               onRemoveEntry: (id: string) => diary.removeFoodEntry(mealType, id),
               onUpdateServings: (id: string, servings: number) => diary.updateFoodEntry(mealType, id, servings),
+              onSaveAsTemplate: () => handleSaveAsTemplate(mealType),
             }),
           ),
 

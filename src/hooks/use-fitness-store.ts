@@ -3,6 +3,7 @@ import { createStorage, type FitnessStorage } from '../store/storage';
 import { toDateKey, uuid } from '../utils/date-helpers';
 import { searchOpenFoodFacts } from '../api/open-food-facts';
 import { searchUSDA } from '../api/usda';
+import { recipeToFood } from '../utils/recipe-to-food';
 
 // Singleton store state shared across components
 let _storage: FitnessStorage | null = null;
@@ -134,6 +135,7 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<NormalizedFood[]>([]);
     const [recentFoods, setRecentFoods] = useState<NormalizedFood[]>([]);
+    const [frequentFoods, setFrequentFoods] = useState<NormalizedFood[]>([]);
     const [customFoods, setCustomFoods] = useState<NormalizedFood[]>([]);
     const [searching, setSearching] = useState(false);
     const [source, setSource] = useState<'all' | 'openfoodfacts' | 'usda' | 'custom'>('all');
@@ -142,6 +144,7 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
     useEffect(() => {
       const s = getStorage();
       s.getRecentFoods().then(setRecentFoods);
+      s.getFrequentFoods().then(ff => setFrequentFoods(ff.map(f => f.food)));
       s.getAllCustomFoods().then(setCustomFoods);
     }, []);
 
@@ -166,11 +169,18 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
         }
 
         if (source === 'all' || source === 'custom') {
-          const customs = await getStorage().getAllCustomFoods();
           const lower = q.toLowerCase();
+          // Custom foods
+          const customs = await getStorage().getAllCustomFoods();
           promises.push(Promise.resolve(
             customs.filter(f => f.name.toLowerCase().includes(lower) || f.brand?.toLowerCase().includes(lower))
           ));
+          // Recipes as food
+          const recipes = await getStorage().getAllRecipes();
+          const matchingRecipes = recipes
+            .filter(r => r.name.toLowerCase().includes(lower) && r.ingredients.length > 0)
+            .map(recipeToFood);
+          promises.push(Promise.resolve(matchingRecipes));
         }
 
         const allResults = await Promise.all(promises);
@@ -190,7 +200,7 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
 
     return {
       query, setQuery: debouncedSearch, results, searching, source, setSource,
-      recentFoods, customFoods,
+      recentFoods, frequentFoods, customFoods,
     };
   };
 }
