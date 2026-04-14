@@ -1,8 +1,9 @@
 import type { SharedDependencies, NormalizedFood, Recipe } from '../types';
-import { getStorage } from '../hooks/use-fitness-store';
+import { getStorage, getApi } from '../hooks/use-fitness-store';
 import { uuid } from '../utils/date-helpers';
 import { formatCal, formatG } from '../utils/nutrients';
 import { createFoodSearchDialog } from './food-search';
+import { createEmptyState } from './empty-state';
 
 export function createRecipeBuilder(Shared: SharedDependencies) {
   const {
@@ -11,6 +12,8 @@ export function createRecipeBuilder(Shared: SharedDependencies) {
     ScrollArea, Separator, lucideIcons, cn,
   } = Shared;
   const { Plus, Trash2, ChefHat, Pencil } = lucideIcons;
+
+  const EmptyState = createEmptyState(Shared);
 
   function RecipeEditor({ recipe, onSave, onCancel }: {
     recipe: Recipe | null;
@@ -177,6 +180,7 @@ export function createRecipeBuilder(Shared: SharedDependencies) {
       await getStorage().setRecipe(recipe);
       setEditing(null);
       await load();
+      getApi().ui.showToast(`Recipe "${recipe.name}" saved`, 'success');
     };
 
     const handleDelete = async (id: string) => {
@@ -209,8 +213,12 @@ export function createRecipeBuilder(Shared: SharedDependencies) {
       loading
         ? React.createElement('div', { className: 'text-sm text-muted-foreground text-center py-8' }, 'Loading...')
         : recipes.length === 0
-        ? React.createElement('div', { className: 'text-sm text-muted-foreground text-center py-8' },
-            'No recipes yet. Create one to save your favorite meals.')
+        ? React.createElement(EmptyState, {
+            icon: 'ChefHat',
+            title: 'No recipes yet',
+            description: 'Build multi-ingredient meals and save them for quick logging later.',
+            action: { label: 'New Recipe', iconName: 'Plus', onClick: () => setEditing('new') },
+          })
         : React.createElement('div', { className: 'space-y-2' },
             ...recipes.map(recipe => {
               const totalCal = recipe.ingredients.reduce((sum, ing) => sum + ing.food.calories * ing.servings, 0);

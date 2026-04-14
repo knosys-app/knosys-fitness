@@ -50,12 +50,20 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
       food.source === 'openfoodfacts' ? 'Open Food Facts' :
       food.source === 'usda' ? 'USDA' :
       food.source === 'custom' ? 'Custom' : 'Recipe';
+    const sourceColor =
+      food.source === 'openfoodfacts' ? { bg: 'rgba(16, 185, 129, 0.12)', fg: '#059669' } :
+      food.source === 'usda' ? { bg: 'rgba(30, 64, 175, 0.12)', fg: '#1e40af' } :
+      food.source === 'custom' ? { bg: 'rgba(139, 92, 246, 0.12)', fg: '#7c3aed' } :
+      { bg: 'rgba(245, 158, 11, 0.12)', fg: '#d97706' };
 
     return React.createElement('div', { className: 'space-y-3 p-1' },
       React.createElement('div', null,
         React.createElement('div', { className: 'text-base font-semibold leading-tight' }, food.name),
         food.brand && React.createElement('div', { className: 'text-sm text-muted-foreground' }, food.brand),
-        React.createElement(Badge, { variant: 'secondary', className: 'mt-1.5 text-[10px]' }, sourceLabel),
+        React.createElement('span', {
+          className: 'inline-block mt-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full',
+          style: { backgroundColor: sourceColor.bg, color: sourceColor.fg },
+        }, sourceLabel),
       ),
 
       React.createElement(Separator, null),

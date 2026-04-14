@@ -31,7 +31,7 @@ export function createMacroProgress(Shared: SharedDependencies) {
             borderRadius: '9999px',
             width: animated ? `${pct}%` : '0%',
             backgroundColor: over ? 'hsl(var(--destructive))' : color,
-            transition: 'width 800ms cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
           },
         }),
       ),
@@ -86,7 +86,7 @@ export function createMacroProgress(Shared: SharedDependencies) {
 
     return React.createElement('div', {
       className: 'space-y-3',
-      style: { opacity: fadeIn ? 1 : 0, transform: fadeIn ? 'translateY(0)' : 'translateY(8px)', transition: 'opacity 400ms ease, transform 400ms ease' },
+      style: { opacity: fadeIn ? 1 : 0, transform: fadeIn ? 'translateY(0)' : 'translateY(8px)', transition: 'opacity 400ms cubic-bezier(0.4, 0, 0.2, 1), transform 400ms cubic-bezier(0.4, 0, 0.2, 1)' },
     },
       // Calorie ring summary
       React.createElement('div', { className: 'flex items-center gap-4' },

@@ -1,5 +1,5 @@
 import type { SharedDependencies } from '../types';
-import { getStorage } from '../hooks/use-fitness-store';
+import { getStorage, getApi } from '../hooks/use-fitness-store';
 import { toDateKey, toMonthKey, fromDateKey } from '../utils/date-helpers';
 import { kgToLbs } from '../utils/nutrients';
 
@@ -42,6 +42,7 @@ export function createWeightTracker(Shared: SharedDependencies) {
       await s.setWeight(toDateKey(new Date()), { weight_kg: kg });
       setCurrentWeight(kg);
       await loadData();
+      getApi().ui.showToast(`Logged ${kg.toFixed(1)} kg for today`, 'success');
     };
 
     const chartData = weightData.map(d => ({

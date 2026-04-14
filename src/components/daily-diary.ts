@@ -9,6 +9,7 @@ import { createMealSection } from './meal-section';
 import { createFoodSearchDialog } from './food-search';
 import { createFoodEntryForm } from './food-entry-form';
 import { createWaterTracker } from './water-tracker';
+import { createSkeletonComponents } from './skeleton';
 
 export function createDailyDiary(Shared: SharedDependencies) {
   const { React, ScrollArea, Button, lucideIcons, dateFns, cn } = Shared;
@@ -24,7 +25,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
       style: {
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(12px)',
-        transition: 'opacity 400ms ease, transform 400ms ease',
+        transition: 'opacity 400ms cubic-bezier(0.4, 0, 0.2, 1), transform 400ms cubic-bezier(0.4, 0, 0.2, 1)',
       },
     }, children);
   }
@@ -36,6 +37,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
   const FoodSearchDialog = createFoodSearchDialog(Shared);
   const FoodEntryForm = createFoodEntryForm(Shared);
   const WaterTracker = createWaterTracker(Shared);
+  const { DiarySkeleton } = createSkeletonComponents(Shared);
   const useDiary = createUseDiary(Shared);
 
   return function DailyDiary() {
@@ -78,9 +80,14 @@ export function createDailyDiary(Shared: SharedDependencies) {
     };
 
     if (diary.loading) {
-      return React.createElement('div', {
-        className: 'flex items-center justify-center h-full text-muted-foreground',
-      }, 'Loading...');
+      return React.createElement('div', { className: 'flex flex-col h-full' },
+        React.createElement('div', { className: 'flex items-center justify-between px-4 py-3 border-b' },
+          React.createElement(DateNavigator, { date, onDateChange: setDate }),
+        ),
+        React.createElement(ScrollArea, { className: 'flex-1' },
+          React.createElement(DiarySkeleton, null),
+        ),
+      );
     }
 
     return React.createElement('div', { className: 'flex flex-col h-full' },

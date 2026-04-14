@@ -86,7 +86,7 @@ export function createMealSection(Shared: SharedDependencies) {
           React.createElement(PopoverTrigger, { asChild: true },
             React.createElement(Button, {
               variant: 'ghost', size: 'icon',
-              className: 'h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity',
+              className: 'h-7 w-7 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all',
               onClick: (e: any) => e.stopPropagation(),
             }, React.createElement(Pencil, { className: 'h-3.5 w-3.5 text-muted-foreground' })),
           ),
@@ -98,7 +98,7 @@ export function createMealSection(Shared: SharedDependencies) {
         ),
         React.createElement(Button, {
           variant: 'ghost', size: 'icon',
-          className: 'h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity',
+          className: 'h-7 w-7 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all',
           onClick: (e: any) => { e.stopPropagation(); onRemove(); },
         }, React.createElement(Trash2, { className: 'h-3.5 w-3.5 text-destructive' })),
       ),

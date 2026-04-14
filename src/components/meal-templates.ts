@@ -1,8 +1,9 @@
 import type { SharedDependencies, MealTemplate, NormalizedFood } from '../types';
-import { getStorage } from '../hooks/use-fitness-store';
+import { getStorage, getApi } from '../hooks/use-fitness-store';
 import { uuid } from '../utils/date-helpers';
 import { formatCal, formatG } from '../utils/nutrients';
 import { createFoodSearchDialog } from './food-search';
+import { createEmptyState } from './empty-state';
 
 export function createMealTemplates(Shared: SharedDependencies) {
   const {
@@ -13,6 +14,7 @@ export function createMealTemplates(Shared: SharedDependencies) {
   const { BookmarkPlus, Trash2, Plus, Pencil, ArrowLeft } = lucideIcons;
 
   const FoodSearchDialog = createFoodSearchDialog(Shared);
+  const EmptyState = createEmptyState(Shared);
 
   function TemplateEditor({ template, onSave, onCancel }: {
     template: MealTemplate;
@@ -137,6 +139,7 @@ export function createMealTemplates(Shared: SharedDependencies) {
       await getStorage().setTemplate(template);
       setEditing(null);
       await load();
+      getApi().ui.showToast(`Template "${template.name}" saved`, 'success');
     };
 
     if (editing) {
@@ -164,8 +167,12 @@ export function createMealTemplates(Shared: SharedDependencies) {
       loading
         ? React.createElement('div', { className: 'text-sm text-muted-foreground text-center py-8' }, 'Loading...')
         : templates.length === 0
-        ? React.createElement('div', { className: 'text-sm text-muted-foreground text-center py-8' },
-            'No meal templates yet. Save common meals as templates for quick logging.')
+        ? React.createElement(EmptyState, {
+            icon: 'BookmarkPlus',
+            title: 'No templates yet',
+            description: 'Save common meals once, log them in a click later.',
+            action: { label: 'New Template', iconName: 'Plus', onClick: () => setCreateOpen(true) },
+          })
         : React.createElement('div', { className: 'space-y-2' },
             ...templates.map(template => {
               const totalCal = template.items.reduce((sum, item) => sum + item.food.calories * item.servings, 0);

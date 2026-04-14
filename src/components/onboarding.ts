@@ -155,7 +155,7 @@ export function createOnboarding(Shared: SharedDependencies) {
 
     // Transition styles
     const contentStyle: Record<string, string> = {
-      transition: 'opacity 200ms ease, transform 200ms ease',
+      transition: 'opacity 200ms cubic-bezier(0.4, 0, 0.2, 1), transform 200ms cubic-bezier(0.4, 0, 0.2, 1)',
       opacity: visible ? '1' : '0',
       transform: visible
         ? 'translateX(0)'

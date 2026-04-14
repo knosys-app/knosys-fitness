@@ -1,5 +1,6 @@
 import type { SharedDependencies, ExerciseLog as ExerciseLogType } from '../types';
 import { formatCal } from '../utils/nutrients';
+import { createEmptyState } from './empty-state';
 
 export function createExerciseLog(Shared: SharedDependencies) {
   const {
@@ -8,6 +9,8 @@ export function createExerciseLog(Shared: SharedDependencies) {
     lucideIcons, cn,
   } = Shared;
   const { Flame, Plus, Trash2 } = lucideIcons;
+
+  const EmptyState = createEmptyState(Shared);
 
   function AddExerciseDialog({ open, onOpenChange, onAdd }: {
     open: boolean;
@@ -71,47 +74,56 @@ export function createExerciseLog(Shared: SharedDependencies) {
     const totalCal = exercise.entries.reduce((sum, e) => sum + e.calories_burned, 0);
 
     return React.createElement(React.Fragment, null,
-      React.createElement(Card, null,
-        React.createElement(CardContent, { className: 'p-4' },
-          React.createElement('div', { className: 'flex items-center justify-between mb-2' },
-            React.createElement('div', { className: 'flex items-center gap-2' },
-              React.createElement(Flame, { className: 'h-4 w-4 text-orange-500' }),
-              React.createElement('span', { className: 'text-sm font-semibold' }, 'Exercise'),
+      exercise.entries.length === 0
+        ? React.createElement(Card, null,
+            React.createElement(CardContent, { className: 'p-0' },
+              React.createElement(EmptyState, {
+                icon: 'Flame',
+                title: 'No workouts logged',
+                description: 'Add exercise to subtract burned calories from your daily total.',
+                action: { label: 'Add Exercise', iconName: 'Plus', onClick: () => setDialogOpen(true) },
+              }),
             ),
-            React.createElement('span', { className: 'text-sm text-muted-foreground' },
-              totalCal > 0 ? `${formatCal(totalCal)} cal burned` : ''),
-          ),
-
-          exercise.entries.length > 0 && React.createElement('div', { className: 'divide-y mb-2' },
-            ...exercise.entries.map(entry =>
-              React.createElement('div', { key: entry.id, className: 'flex items-center justify-between py-1.5 group' },
-                React.createElement('div', null,
-                  React.createElement('div', { className: 'text-sm' }, entry.name),
-                  React.createElement('div', { className: 'text-xs text-muted-foreground' },
-                    `${entry.duration_min} min`),
-                ),
+          )
+        : React.createElement(Card, null,
+            React.createElement(CardContent, { className: 'p-4' },
+              React.createElement('div', { className: 'flex items-center justify-between mb-2' },
                 React.createElement('div', { className: 'flex items-center gap-2' },
-                  React.createElement('span', { className: 'text-sm' }, `${entry.calories_burned} cal`),
-                  React.createElement(Button, {
-                    variant: 'ghost', size: 'icon',
-                    className: 'h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity',
-                    onClick: () => onRemoveExercise(entry.id),
-                  }, React.createElement(Trash2, { className: 'h-3.5 w-3.5 text-destructive' })),
+                  React.createElement(Flame, { className: 'h-4 w-4 text-orange-500' }),
+                  React.createElement('span', { className: 'text-sm font-semibold' }, 'Exercise'),
                 ),
+                React.createElement('span', { className: 'text-sm text-muted-foreground tabular-nums' },
+                  `${formatCal(totalCal)} cal burned`),
+              ),
+              React.createElement('div', { className: 'divide-y mb-2' },
+                ...exercise.entries.map(entry =>
+                  React.createElement('div', { key: entry.id, className: 'flex items-center justify-between py-1.5 group' },
+                    React.createElement('div', null,
+                      React.createElement('div', { className: 'text-sm' }, entry.name),
+                      React.createElement('div', { className: 'text-xs text-muted-foreground tabular-nums' },
+                        `${entry.duration_min} min`),
+                    ),
+                    React.createElement('div', { className: 'flex items-center gap-2' },
+                      React.createElement('span', { className: 'text-sm tabular-nums' }, `${entry.calories_burned} cal`),
+                      React.createElement(Button, {
+                        variant: 'ghost', size: 'icon',
+                        className: 'h-7 w-7 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all',
+                        onClick: () => onRemoveExercise(entry.id),
+                      }, React.createElement(Trash2, { className: 'h-3.5 w-3.5 text-destructive' })),
+                    ),
+                  ),
+                ),
+              ),
+              React.createElement(Button, {
+                variant: 'ghost', size: 'sm',
+                className: 'w-full text-muted-foreground hover:text-primary',
+                onClick: () => setDialogOpen(true),
+              },
+                React.createElement(Plus, { className: 'h-4 w-4 mr-1' }),
+                'Add Exercise',
               ),
             ),
           ),
-
-          React.createElement(Button, {
-            variant: 'ghost', size: 'sm',
-            className: 'w-full text-muted-foreground hover:text-primary',
-            onClick: () => setDialogOpen(true),
-          },
-            React.createElement(Plus, { className: 'h-4 w-4 mr-1' }),
-            'Add Exercise',
-          ),
-        ),
-      ),
 
       React.createElement(AddExerciseDialog, {
         open: dialogOpen, onOpenChange: setDialogOpen, onAdd: onAddExercise,

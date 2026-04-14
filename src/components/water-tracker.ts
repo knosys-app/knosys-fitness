@@ -122,7 +122,7 @@ export function createWaterTracker(Shared: SharedDependencies) {
               style: { height: '8px', width: '100%', overflow: 'hidden', borderRadius: '9999px', backgroundColor: 'hsl(var(--secondary))' },
             },
               React.createElement('div', {
-                style: { height: '100%', borderRadius: '9999px', backgroundColor: 'hsl(217, 91%, 60%)', transition: 'width 300ms', width: `${pct}%` },
+                style: { height: '100%', borderRadius: '9999px', backgroundColor: 'hsl(217, 91%, 60%)', transition: 'width 400ms cubic-bezier(0.4, 0, 0.2, 1)', width: `${pct}%` },
               }),
             ),
 
