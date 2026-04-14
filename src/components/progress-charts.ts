@@ -112,7 +112,7 @@ export function createProgressCharts(Shared: SharedDependencies) {
 
       loading
         ? React.createElement('div', { className: 'text-sm text-muted-foreground text-center py-12' }, 'Loading...')
-        : React.createElement('div', { className: 'grid gap-4 lg:grid-cols-2' },
+        : React.createElement('div', { className: 'grid gap-4 md:grid-cols-2' },
             // Calories
             React.createElement(ChartCard, {
               title: 'Calories',

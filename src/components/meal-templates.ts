@@ -173,7 +173,7 @@ export function createMealTemplates(Shared: SharedDependencies) {
             description: 'Save common meals once, log them in a click later.',
             action: { label: 'New Template', iconName: 'Plus', onClick: () => setCreateOpen(true) },
           })
-        : React.createElement('div', { className: 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' },
+        : React.createElement('div', { className: 'grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4' },
             ...templates.map(template => {
               const totalCal = template.items.reduce((sum, item) => sum + item.food.calories * item.servings, 0);
 

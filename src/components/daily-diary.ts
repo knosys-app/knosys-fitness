@@ -108,7 +108,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
       // Scrollable content — 2-column dashboard on lg+
       React.createElement(ScrollArea, { className: 'flex-1' },
         React.createElement('div', {
-          className: 'p-4 lg:p-6 grid gap-4 lg:gap-6 lg:grid-cols-[340px_1fr]',
+          className: 'p-4 md:p-5 grid gap-4 md:grid-cols-[320px_1fr]',
         },
           // LEFT: Sidebar with summary + KPIs + sparkline
           React.createElement(AnimatedItem, { delay: 0 },

@@ -54,9 +54,9 @@ export function createExercisePage(Shared: SharedDependencies) {
       ),
 
       React.createElement(ScrollArea, { className: 'flex-1' },
-        React.createElement('div', { className: 'p-4 lg:p-6 space-y-4' },
+        React.createElement('div', { className: 'p-4 md:p-5 space-y-4' },
           // KPI row
-          React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-3' },
+          React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-3' },
             React.createElement(StatTile, {
               icon: 'Flame',
               label: 'Today',
@@ -87,7 +87,7 @@ export function createExercisePage(Shared: SharedDependencies) {
           ),
 
           // Split layout: log + chart
-          React.createElement('div', { className: 'grid gap-4 lg:grid-cols-[1fr_1fr]' },
+          React.createElement('div', { className: 'grid gap-4 md:grid-cols-[1fr_1fr]' },
             // Left: today's exercise log
             React.createElement('div', null,
               React.createElement('h3', {

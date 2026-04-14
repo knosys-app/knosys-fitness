@@ -219,7 +219,7 @@ export function createRecipeBuilder(Shared: SharedDependencies) {
             description: 'Build multi-ingredient meals and save them for quick logging later.',
             action: { label: 'New Recipe', iconName: 'Plus', onClick: () => setEditing('new') },
           })
-        : React.createElement('div', { className: 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' },
+        : React.createElement('div', { className: 'grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4' },
             ...recipes.map(recipe => {
               const totalCal = recipe.ingredients.reduce((sum, ing) => sum + ing.food.calories * ing.servings, 0);
               const perServing = Math.round(totalCal / (recipe.servings || 1));

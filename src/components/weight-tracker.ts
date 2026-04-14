@@ -69,7 +69,7 @@ export function createWeightTracker(Shared: SharedDependencies) {
 
     return React.createElement('div', { className: 'space-y-4' },
       // KPI Row
-      React.createElement('div', { className: 'grid grid-cols-2 lg:grid-cols-4 gap-3' },
+      React.createElement('div', { className: 'grid grid-cols-2 md:grid-cols-4 gap-3' },
         React.createElement(StatTile, {
           icon: 'Scale',
           label: 'Current',
@@ -99,7 +99,7 @@ export function createWeightTracker(Shared: SharedDependencies) {
       ),
 
       // Main: log + chart side by side on lg
-      React.createElement('div', { className: 'grid gap-4 lg:grid-cols-[280px_1fr]' },
+      React.createElement('div', { className: 'grid gap-4 md:grid-cols-[280px_1fr]' },
         // Left: log input
         React.createElement(Card, null,
           React.createElement(CardContent, { className: 'p-4 space-y-3' },
