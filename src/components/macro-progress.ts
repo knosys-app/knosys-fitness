@@ -1,180 +1,287 @@
-import type { SharedDependencies, Goals } from '../types';
-import { formatCal, formatG } from '../utils/nutrients';
+import type { SharedDependencies, Goals, WaterEntry } from '../types';
+import { formatCal } from '../utils/nutrients';
+import {
+  createMetricRing,
+  createDataBar,
+  createNumericReadout,
+  createSemanticBadge,
+} from '../design-system/primitives';
+import { SIG_PALETTE } from '../theme/palette';
 
+/**
+ * MacroProgress — rebuilt on the signature design system.
+ *
+ * Composition:
+ *   [ MetricRing (3 arcs)  ] [ Protein DataBar  ]
+ *                            [ Carbs   DataBar  ]
+ *                            [ Fat     DataBar  ]
+ *   [ Goal / Food / Remaining summary ]
+ *   [ Water   DataBar ]  (optional — pass water + goals.water_ml)
+ */
 export function createMacroProgress(Shared: SharedDependencies) {
-  const { React, cn } = Shared;
+  const { React } = Shared;
 
-  function MacroBar({ label, current, goal, color, unit, delay }: {
-    label: string; current: number; goal: number; color: string; unit: string; delay: number;
+  const MetricRing = createMetricRing(Shared);
+  const DataBar = createDataBar(Shared);
+  const NumericReadout = createNumericReadout(Shared);
+  const SemanticBadge = createSemanticBadge(Shared);
+
+  // --- Helper components defined with the captured React ---
+  function MacroRow({
+    label,
+    current,
+    goal,
+    accent,
+  }: {
+    label: string;
+    current: number;
+    goal: number;
+    accent: 'protein' | 'carbs' | 'fat';
   }) {
-    const [animated, setAnimated] = React.useState(false);
-    React.useEffect(() => {
-      const t = setTimeout(() => setAnimated(true), delay);
-      return () => clearTimeout(t);
-    }, [delay]);
+    return React.createElement(DataBar, {
+      label,
+      value: current,
+      max: goal,
+      accent,
+      showValue: true,
+      formatValue: (v: number) => `${Math.round(v)}g`,
+      height: 6,
+    });
+  }
 
-    const pct = goal > 0 ? Math.min((current / goal) * 100, 100) : 0;
-    const over = current > goal;
-
-    return React.createElement('div', { className: 'space-y-1' },
-      React.createElement('div', { className: 'flex justify-between text-xs' },
-        React.createElement('span', { className: 'text-muted-foreground' }, label),
-        React.createElement('span', { className: cn('font-medium', over && 'text-destructive') },
-          `${Math.round(current)}${unit} / ${Math.round(goal)}${unit}`),
-      ),
-      React.createElement('div', {
-        style: { height: '8px', width: '100%', overflow: 'hidden', borderRadius: '9999px', backgroundColor: 'hsl(var(--secondary))' },
+  function SummaryCol({
+    label,
+    value,
+    negative,
+    signed,
+  }: {
+    label: string;
+    value: number;
+    negative?: boolean;
+    signed?: boolean;
+  }) {
+    const display = signed && negative
+      ? `\u2212${formatCal(Math.abs(value))}`
+      : formatCal(value);
+    return React.createElement('div', {
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 2,
+        minWidth: 0,
       },
-        React.createElement('div', {
-          style: {
-            height: '100%',
-            borderRadius: '9999px',
-            width: animated ? `${pct}%` : '0%',
-            backgroundColor: over ? 'hsl(var(--destructive))' : color,
-            transition: 'width 600ms cubic-bezier(0.4, 0, 0.2, 1)',
-          },
-        }),
-      ),
+    },
+      React.createElement('span', {
+        className: 'knf-eyebrow',
+        style: {
+          fontFamily: 'var(--knf-font-mono)',
+          fontSize: 10,
+          color: 'var(--knf-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.14em',
+          fontWeight: 500,
+        },
+      }, label),
+      React.createElement('span', {
+        style: {
+          fontFamily: 'var(--knf-font-mono)',
+          fontSize: 18,
+          fontWeight: 600,
+          color: negative ? 'var(--knf-alert)' : 'var(--knf-ink)',
+          fontVariantNumeric: 'tabular-nums slashed-zero',
+          lineHeight: 1,
+        },
+      }, display),
     );
   }
 
-  return function MacroProgress({ calories, protein_g, carbs_g, fat_g, goals }: {
-    calories: number; protein_g: number; carbs_g: number; fat_g: number; goals: Goals;
+  return function MacroProgress({
+    calories, protein_g, carbs_g, fat_g, goals, water,
+  }: {
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+    goals: Goals;
+    water?: WaterEntry;
   }) {
-    const [fadeIn, setFadeIn] = React.useState(false);
-    // Track which arcs have animated (0 = none, 1 = protein, 2 = +carbs, 3 = +fat)
-    const [animatedCount, setAnimatedCount] = React.useState(0);
-
-    React.useEffect(() => {
-      requestAnimationFrame(() => {
-        setFadeIn(true);
-        // Stagger each arc sequentially so only one animates at a time
-        setTimeout(() => setAnimatedCount(1), 150);
-        setTimeout(() => setAnimatedCount(2), 650);
-        setTimeout(() => setAnimatedCount(3), 1100);
-      });
-    }, []);
-
-    const remaining = Math.max(0, goals.calories - calories);
-    const radius = 44;
-    const svgSize = 104;
-    const center = svgSize / 2;
-    const circumference = 2 * Math.PI * radius;
     const overBudget = calories > goals.calories;
+    const remaining = Math.max(0, goals.calories - calories);
+    const overBy = Math.max(0, calories - goals.calories);
 
-    // Macro calorie contributions
+    // Convert macro grams to their calorie share
     const proteinCal = protein_g * 4;
     const carbsCal = carbs_g * 4;
     const fatCal = fat_g * 9;
-
-    // Each macro as a fraction of the goal (capped so total doesn't exceed 100%)
     const goalCal = goals.calories || 1;
+
     const segments = [
-      { color: '#3b82f6', cal: proteinCal, delay: 100 },  // protein - blue
-      { color: '#f59e0b', cal: carbsCal, delay: 250 },     // carbs - amber
-      { color: '#ef4444', cal: fatCal, delay: 400 },       // fat - red
+      { value: proteinCal, max: goalCal, color: 'protein' as const, label: 'Protein' },
+      { value: carbsCal, max: goalCal, color: 'carbs' as const, label: 'Carbs' },
+      { value: fatCal, max: goalCal, color: 'fat' as const, label: 'Fat' },
     ];
 
-    // Compute arc lengths, capping total at 100%
-    let usedFraction = 0;
-    const arcs = segments.map(seg => {
-      const fraction = Math.min(seg.cal / goalCal, 1 - usedFraction);
-      const startFraction = usedFraction;
-      usedFraction += fraction;
-      return { ...seg, fraction, startFraction };
-    });
-
     return React.createElement('div', {
-      className: 'space-y-3',
-      style: { opacity: fadeIn ? 1 : 0, transform: fadeIn ? 'translateY(0)' : 'translateY(8px)', transition: 'opacity 400ms cubic-bezier(0.4, 0, 0.2, 1), transform 400ms cubic-bezier(0.4, 0, 0.2, 1)' },
+      style: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 18,
+      },
     },
-      // Calorie ring summary
-      React.createElement('div', { className: 'flex items-center gap-4' },
-        React.createElement('div', { className: 'relative flex items-center justify-center' },
-          React.createElement('svg', { width: svgSize, height: svgSize, viewBox: `0 0 ${svgSize} ${svgSize}` },
-            // Background ring
-            React.createElement('circle', {
-              cx: center, cy: center, r: radius, fill: 'none',
-              stroke: 'hsl(var(--secondary))', strokeWidth: 7,
+      // Top row: ring + bars
+      React.createElement('div', {
+        style: {
+          display: 'flex',
+          gap: 20,
+          alignItems: 'center',
+        },
+      },
+        // Ring (no centerValue — we overlay our own animated NumericReadout)
+        React.createElement('div', {
+          style: { flexShrink: 0, position: 'relative', width: 144, height: 144 },
+        },
+          React.createElement(MetricRing, {
+            segments,
+            size: 144,
+          }),
+          // Center overlay with animated count-up
+          React.createElement('div', {
+            style: {
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              pointerEvents: 'none',
+              lineHeight: 1,
+            },
+          },
+            React.createElement(NumericReadout, {
+              value: overBudget ? overBy : remaining,
+              format: (n: number) => overBudget ? `+${formatCal(n)}` : formatCal(n),
+              style: {
+                fontSize: 28,
+                fontWeight: 700,
+                color: overBudget ? SIG_PALETTE.alert : SIG_PALETTE.ink,
+                fontFamily: 'var(--knf-font-mono)',
+              },
             }),
-            // Over budget: single destructive ring
-            overBudget
-              ? React.createElement('circle', {
-                  cx: center, cy: center, r: radius, fill: 'none',
-                  stroke: 'hsl(var(--destructive))',
-                  strokeWidth: 7,
-                  strokeDasharray: `${circumference}`,
-                  strokeDashoffset: animatedCount > 0 ? '0' : `${circumference}`,
-                  strokeLinecap: 'round',
-                  transform: `rotate(-90 ${center} ${center})`,
-                  style: { transition: 'stroke-dashoffset 800ms cubic-bezier(0.4, 0, 0.2, 1)' },
-                })
-              // Normal: three macro-colored arcs — each grows sequentially
-              : arcs.map((arc, i) => {
-                  if (arc.fraction <= 0) return null;
-                  const isAnimated = animatedCount > i;
-                  const arcLen = arc.fraction * circumference;
-                  const rotationDeg = -90 + arc.startFraction * 360;
-                  return React.createElement('circle', {
-                    key: i,
-                    cx: center, cy: center, r: radius, fill: 'none',
-                    stroke: arc.color,
-                    strokeWidth: 7,
-                    strokeDasharray: isAnimated
-                      ? `${arcLen} ${circumference - arcLen}`
-                      : `0 ${circumference}`,
-                    strokeLinecap: 'butt',
-                    transform: `rotate(${rotationDeg} ${center} ${center})`,
-                    style: {
-                      opacity: isAnimated ? 1 : 0,
-                      transition: 'stroke-dasharray 450ms cubic-bezier(0.4, 0, 0.2, 1), opacity 0ms',
-                    },
-                  });
-                }),
+            React.createElement('div', {
+              style: {
+                marginTop: 4,
+                fontFamily: 'var(--knf-font-mono)',
+                fontSize: 10,
+                textTransform: 'uppercase',
+                letterSpacing: '0.14em',
+                color: 'var(--knf-muted)',
+                fontWeight: 500,
+              },
+            }, overBudget ? 'OVER' : 'LEFT'),
           ),
-          React.createElement('div', { className: 'absolute text-center', style: { pointerEvents: 'none' } },
-            overBudget
-              ? React.createElement(React.Fragment, null,
-                  React.createElement('div', {
-                    className: 'text-xl font-bold leading-none tabular-nums',
-                    style: { color: 'hsl(var(--destructive))' },
-                  }, `+${formatCal(calories - goals.calories)}`),
-                  React.createElement('div', {
-                    style: { fontSize: '9px', color: 'hsl(var(--destructive))', marginTop: '2px', letterSpacing: '0.03em' },
-                  }, 'OVER'),
-                )
-              : React.createElement(React.Fragment, null,
-                  React.createElement('div', {
-                    className: 'text-2xl font-bold leading-none tabular-nums',
-                  }, formatCal(remaining)),
-                  React.createElement('div', {
-                    style: { fontSize: '9px', color: 'hsl(var(--muted-foreground))', marginTop: '3px', letterSpacing: '0.05em', textTransform: 'uppercase' },
-                  }, 'remaining'),
-                ),
-          ),
+          overBudget
+            ? React.createElement('div', {
+                style: {
+                  position: 'absolute',
+                  top: -4,
+                  right: -4,
+                },
+              },
+                React.createElement(SemanticBadge, { accent: 'alert', variant: 'solid' }, 'OVER'),
+              )
+            : null,
         ),
-        React.createElement('div', { className: 'flex-1 space-y-1 text-sm' },
-          React.createElement('div', { className: 'flex justify-between' },
-            React.createElement('span', { className: 'text-muted-foreground' }, 'Goal'),
-            React.createElement('span', { className: 'tabular-nums' }, formatCal(goals.calories)),
-          ),
-          React.createElement('div', { className: 'flex justify-between' },
-            React.createElement('span', { className: 'text-muted-foreground' }, 'Food'),
-            React.createElement('span', { className: 'tabular-nums' }, formatCal(calories)),
-          ),
-          React.createElement('div', { className: 'flex justify-between font-medium' },
-            React.createElement('span', { className: 'text-muted-foreground' }, 'Remaining'),
-            React.createElement('span', {
-              className: cn('tabular-nums', overBudget && 'text-destructive'),
-            }, overBudget ? `−${formatCal(calories - goals.calories)}` : formatCal(remaining)),
-          ),
+
+        // Bars stack
+        React.createElement('div', {
+          style: {
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            minWidth: 0,
+          },
+        },
+          React.createElement(MacroRow, {
+            label: 'Protein',
+            current: protein_g,
+            goal: goals.protein_g,
+            accent: 'protein',
+          }),
+          React.createElement(MacroRow, {
+            label: 'Carbs',
+            current: carbs_g,
+            goal: goals.carbs_g,
+            accent: 'carbs',
+          }),
+          React.createElement(MacroRow, {
+            label: 'Fat',
+            current: fat_g,
+            goal: goals.fat_g,
+            accent: 'fat',
+          }),
         ),
       ),
 
-      // Macro bars — staggered animation
-      React.createElement(MacroBar, { label: 'Protein', current: protein_g, goal: goals.protein_g, color: '#3b82f6', unit: 'g', delay: 300 }),
-      React.createElement(MacroBar, { label: 'Carbs', current: carbs_g, goal: goals.carbs_g, color: '#f59e0b', unit: 'g', delay: 450 }),
-      React.createElement(MacroBar, { label: 'Fat', current: fat_g, goal: goals.fat_g, color: '#ef4444', unit: 'g', delay: 600 }),
+      // Calories summary row
+      React.createElement('div', {
+        style: {
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 8,
+          paddingTop: 12,
+          borderTop: '1px solid var(--knf-hairline)',
+        },
+      },
+        React.createElement(SummaryCol, { label: 'Goal', value: goals.calories }),
+        React.createElement(SummaryCol, { label: 'Food', value: calories }),
+        React.createElement(SummaryCol, {
+          label: 'Remaining',
+          value: overBudget ? -overBy : remaining,
+          negative: overBudget,
+          signed: overBudget,
+        }),
+      ),
+
+      // Optional water bar (hydration accent)
+      water
+        ? React.createElement('div', {
+            style: {
+              paddingTop: 12,
+              borderTop: '1px solid var(--knf-hairline)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+            },
+          },
+            React.createElement('div', {
+              style: {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                fontSize: 12,
+              },
+            },
+              React.createElement('span', {
+                style: { color: 'var(--knf-muted)' },
+              }, 'Water'),
+              React.createElement('span', {
+                style: {
+                  fontFamily: 'var(--knf-font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  color: 'var(--knf-ink)',
+                  fontWeight: 500,
+                },
+              }, `${water.ml.toLocaleString()} / ${goals.water_ml.toLocaleString()} ml`),
+            ),
+            React.createElement(DataBar, {
+              value: water.ml,
+              max: goals.water_ml,
+              accent: 'hydration',
+              height: 6,
+            }),
+          )
+        : null,
     );
   };
 }

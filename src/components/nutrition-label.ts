@@ -4,7 +4,7 @@ interface NutrientRow {
   label: string;
   value: number | undefined;
   unit: string;
-  dv?: number; // daily value for % calculation
+  dv?: number;
   bold?: boolean;
   indent?: boolean;
 }
@@ -27,8 +27,12 @@ const DAILY_VALUES: Record<string, number> = {
   potassium_mg: 4700,
 };
 
+/**
+ * NutritionLabel — signature polish of the expanded nutrition card.
+ * Dense JetBrains Mono tabular layout with chartreuse accent stripe.
+ */
 export function createNutritionLabel(Shared: SharedDependencies) {
-  const { React, Separator, cn } = Shared;
+  const { React, cn } = Shared;
 
   return function NutritionLabel({ food, servings }: { food: NormalizedFood; servings: number }) {
     const s = servings;
@@ -56,45 +60,135 @@ export function createNutritionLabel(Shared: SharedDependencies) {
     function Row({ row }: { row: NutrientRow }) {
       if (row.value == null) return null;
       const dvPct = row.dv ? Math.round((row.value / row.dv) * 100) : null;
-      const valStr = row.unit === '' ? Math.round(row.value) : `${Math.round(row.value * 10) / 10}${row.unit}`;
-
+      const valStr = row.unit === '' ? String(Math.round(row.value)) : `${Math.round(row.value * 10) / 10}${row.unit}`;
       return React.createElement('div', {
-        className: cn(
-          'flex justify-between py-0.5 text-xs',
-          row.indent && 'pl-4',
-        ),
+        style: {
+          display: 'flex',
+          justifyContent: 'space-between',
+          padding: '3px 0',
+          fontSize: 11,
+          fontFamily: 'var(--knf-font-mono)',
+          fontVariantNumeric: 'tabular-nums',
+          paddingLeft: row.indent ? 12 : 0,
+        },
       },
-        React.createElement('span', { className: cn(row.bold && 'font-semibold') },
-          `${row.label} `, React.createElement('span', { className: 'font-normal' }, valStr)),
-        dvPct != null && React.createElement('span', { className: 'font-semibold' }, `${dvPct}%`),
+        React.createElement('span', { style: { color: 'var(--knf-ink)' } },
+          React.createElement('span', {
+            style: { fontWeight: row.bold ? 600 : 400 },
+          }, row.label),
+          ' ',
+          React.createElement('span', { style: { fontWeight: 400, color: 'var(--knf-ink)' } }, valStr),
+        ),
+        dvPct != null
+          ? React.createElement('span', {
+              style: { fontWeight: 600, color: 'var(--knf-hero-ink)' },
+            }, `${dvPct}%`)
+          : null,
       );
     }
 
-    return React.createElement('div', { className: 'border rounded-md p-3 space-y-0.5 text-xs' },
-      React.createElement('div', { className: 'text-sm font-bold mb-1' }, 'Nutrition Facts'),
-      React.createElement('div', { className: 'text-[10px] text-muted-foreground mb-1' },
-        `${servings} serving${servings !== 1 ? 's' : ''} (${Math.round(food.serving_size_g * servings)}g)`),
-      React.createElement('div', { className: 'border-t-8 border-foreground pt-0.5' }),
-
-      ...rows.filter(r => r.value != null).map((row, i) =>
-        React.createElement(React.Fragment, { key: row.label },
-          i > 0 && React.createElement('div', { className: 'border-t border-muted' }),
-          React.createElement(Row, { row }),
-        ),
-      ),
-
-      microRows.length > 0 && React.createElement(React.Fragment, null,
-        React.createElement('div', { className: 'border-t-4 border-foreground mt-1 pt-1' }),
-        ...microRows.map((row, i) =>
+    return React.createElement('div', {
+      style: {
+        position: 'relative',
+        background: 'var(--knf-surface)',
+        border: '1px solid var(--knf-hairline)',
+        borderRadius: 'var(--knf-radius-md)',
+        padding: '12px 14px',
+        overflow: 'hidden',
+      },
+    },
+      // Chartreuse accent stripe (top)
+      React.createElement('div', {
+        'aria-hidden': true,
+        style: {
+          position: 'absolute',
+          top: 0, left: 0, right: 0,
+          height: 3,
+          background: 'var(--knf-hero)',
+        },
+      }),
+      // Title
+      React.createElement('div', {
+        style: {
+          fontFamily: 'var(--knf-font-display)',
+          fontSize: 14,
+          fontWeight: 700,
+          color: 'var(--knf-ink)',
+          letterSpacing: '-0.01em',
+          marginBottom: 2,
+        },
+      }, 'Nutrition Facts'),
+      React.createElement('div', {
+        style: {
+          fontSize: 10,
+          color: 'var(--knf-muted)',
+          fontFamily: 'var(--knf-font-mono)',
+          marginBottom: 6,
+        },
+      }, `${servings} serving${servings !== 1 ? 's' : ''} (${Math.round(food.serving_size_g * servings)}g)`),
+      React.createElement('div', {
+        style: {
+          borderTop: '6px solid var(--knf-ink)',
+          marginBottom: 2,
+        },
+      }),
+      React.createElement('div', {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 0,
+        },
+      },
+        ...rows.filter(r => r.value != null).map((row, i) =>
           React.createElement(React.Fragment, { key: row.label },
-            i > 0 && React.createElement('div', { className: 'border-t border-muted' }),
+            i > 0
+              ? React.createElement('div', {
+                  style: { borderTop: '1px solid var(--knf-hairline)' },
+                })
+              : null,
             React.createElement(Row, { row }),
           ),
         ),
       ),
-
-      React.createElement('div', { className: 'border-t border-muted pt-1 mt-1 text-[10px] text-muted-foreground' },
-        '* % Daily Value based on a 2,000 calorie diet'),
+      microRows.length > 0
+        ? React.createElement(React.Fragment, null,
+            React.createElement('div', {
+              style: {
+                borderTop: '3px solid var(--knf-ink)',
+                marginTop: 6, marginBottom: 2,
+              },
+            }),
+            React.createElement('div', {
+              style: {
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 0,
+              },
+            },
+              ...microRows.map((row, i) =>
+                React.createElement(React.Fragment, { key: row.label },
+                  i > 0
+                    ? React.createElement('div', {
+                        style: { borderTop: '1px solid var(--knf-hairline)' },
+                      })
+                    : null,
+                  React.createElement(Row, { row }),
+                ),
+              ),
+            ),
+          )
+        : null,
+      React.createElement('div', {
+        style: {
+          marginTop: 6,
+          paddingTop: 6,
+          borderTop: '1px solid var(--knf-hairline)',
+          fontSize: 10,
+          color: 'var(--knf-muted)',
+          fontFamily: 'var(--knf-font-mono)',
+          lineHeight: 1.4,
+        },
+      }, '* % Daily Value based on a 2,000 calorie diet'),
     );
   };
 }

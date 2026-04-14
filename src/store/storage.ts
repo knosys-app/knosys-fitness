@@ -15,6 +15,7 @@ import type {
   DailySummary,
   FitnessSettings,
   FoodEntry,
+  WellnessEntry,
   MEAL_TYPES,
 } from '../types';
 
@@ -27,6 +28,7 @@ const keys = {
   exercise: (date: string) => `exercise:${date}`,
   weight: (date: string) => `weight:${date}`,
   water: (date: string) => `water:${date}`,
+  wellness: (date: string) => `wellness:${date}`,
   goals: () => 'goals',
   profile: () => 'profile',
   settings: () => 'settings',
@@ -108,6 +110,43 @@ export function createStorage(storage: PluginStorageAPI) {
 
     async setWater(date: string, entry: WaterEntry): Promise<void> {
       await storage.set(keys.water(date), entry);
+    },
+
+    // ---- Wellness (sleep / steps / resting HR / notes per day) ----
+    async getWellness(date: string): Promise<WellnessEntry> {
+      const data = await storage.get<WellnessEntry>(keys.wellness(date));
+      return data ?? { date };
+    },
+
+    async setWellness(date: string, entry: WellnessEntry): Promise<void> {
+      // Normalize: always persist the date, strip the object if every
+      // field is empty so the storage key can be used as "present = logged".
+      const hasAny =
+        entry.sleep_minutes != null ||
+        entry.steps != null ||
+        entry.resting_hr_bpm != null ||
+        (entry.notes && entry.notes.trim().length > 0);
+      if (!hasAny) {
+        await storage.delete(keys.wellness(date));
+        return;
+      }
+      await storage.set(keys.wellness(date), { ...entry, date });
+    },
+
+    async getWellnessRange(startDate: string, endDate: string): Promise<WellnessEntry[]> {
+      const allKeys = await storage.keys();
+      const wellnessDates = allKeys
+        .filter(k => k.startsWith('wellness:'))
+        .map(k => k.replace('wellness:', ''))
+        .filter(d => d >= startDate && d <= endDate)
+        .sort();
+
+      const results: WellnessEntry[] = [];
+      for (const d of wellnessDates) {
+        const entry = await storage.get<WellnessEntry>(keys.wellness(d));
+        if (entry) results.push({ ...entry, date: d });
+      }
+      return results;
     },
 
     // ---- Goals ----

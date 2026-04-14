@@ -1,100 +1,29 @@
 import type { SharedDependencies, Goals, WaterEntry } from '../types';
-import { UNITS, type ServingUnit } from '../utils/unit-conversions';
+import { createDataBar, createNumericReadout } from '../design-system/primitives';
+import { createScopedShadcn } from '../design-system/scoped-shadcn';
+import { SIG_PALETTE } from '../theme/palette';
 
-const WATER_UNITS: { unit: ServingUnit; label: string }[] = [
-  { unit: 'ml', label: 'ml' },
-  { unit: 'fl_oz', label: 'fl oz' },
-  { unit: 'cup', label: 'cups' },
-  { unit: 'l', label: 'L' },
-];
-
-function toMl(value: number, unit: ServingUnit): number {
-  // For water, grams ≈ ml, so toGrams factor works
-  return Math.round(value * UNITS[unit].toGrams);
-}
-
+/**
+ * WaterTracker — redesigned signature variant.
+ *
+ * Layout:
+ *   [BIG ml count]  / goal_ml   \u2014 hydration blue
+ *   [DataBar hydration]
+ *   [+250]  [+500]  [+1000]   [+]      [\u2212250]
+ *
+ * The trailing "+" opens a custom-amount modal.
+ */
 export function createWaterTracker(Shared: SharedDependencies) {
-  const {
-    React, Card, CardContent, Button, Input, Label,
-    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-    Separator, lucideIcons, cn,
-  } = Shared;
+  const { React, Input, lucideIcons } = Shared;
   const { Droplets, Plus, Minus } = lucideIcons;
 
-  const QUICK_ADD = [250, 500]; // ml
+  const DataBar = createDataBar(Shared);
+  const NumericReadout = createNumericReadout(Shared);
+  const Scoped = createScopedShadcn(Shared);
+  const { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } = Scoped;
 
-  function AddWaterDialog({ open, onOpenChange, onAdd }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onAdd: (ml: number) => void;
-  }) {
-    const [amount, setAmount] = React.useState('');
-    const [unit, setUnit] = React.useState<ServingUnit>('ml');
-
-    const mlValue = amount ? toMl(parseFloat(amount) || 0, unit) : 0;
-
-    const handleAdd = () => {
-      if (mlValue > 0) {
-        onAdd(mlValue);
-        setAmount('');
-        onOpenChange(false);
-      }
-    };
-
-    return React.createElement(Dialog, { open, onOpenChange },
-      React.createElement(DialogContent, { className: 'max-w-sm' },
-        React.createElement(DialogHeader, null,
-          React.createElement(DialogTitle, { className: 'flex items-center gap-2' },
-            React.createElement(Droplets, { className: 'h-5 w-5 text-blue-500' }),
-            'Add Water',
-          ),
-        ),
-
-        React.createElement('div', { className: 'space-y-3 py-2' },
-          React.createElement('div', { className: 'grid grid-cols-2 gap-2' },
-            React.createElement('div', { className: 'space-y-1' },
-              React.createElement(Label, { className: 'text-xs' }, 'Amount'),
-              React.createElement(Input, {
-                type: 'number', min: 0, step: 'any', value: amount,
-                onChange: (e: any) => setAmount(e.target.value),
-                placeholder: 'e.g. 16', className: 'h-9', autoFocus: true,
-              }),
-            ),
-            React.createElement('div', { className: 'space-y-1' },
-              React.createElement(Label, { className: 'text-xs' }, 'Unit'),
-              React.createElement(Select, {
-                value: unit,
-                onValueChange: (v: string) => setUnit(v as ServingUnit),
-              },
-                React.createElement(SelectTrigger, { className: 'h-9' },
-                  React.createElement(SelectValue, null),
-                ),
-                React.createElement(SelectContent, null,
-                  ...WATER_UNITS.map(wu =>
-                    React.createElement(SelectItem, { key: wu.unit, value: wu.unit }, wu.label),
-                  ),
-                ),
-              ),
-            ),
-          ),
-
-          // Show ml equivalent when not already ml
-          unit !== 'ml' && mlValue > 0 && React.createElement('div', {
-            className: 'text-xs text-muted-foreground text-center',
-          }, `= ${mlValue} ml`),
-        ),
-
-        React.createElement(DialogFooter, null,
-          React.createElement(Button, { variant: 'outline', onClick: () => onOpenChange(false) }, 'Cancel'),
-          React.createElement(Button, {
-            onClick: handleAdd, disabled: mlValue <= 0,
-            style: { backgroundColor: 'hsl(217, 91%, 60%)' },
-          }, `Add ${mlValue > 0 ? mlValue + ' ml' : 'Water'}`),
-        ),
-      ),
-    );
-  }
+  const QUICK_ADDS = [250, 500, 1000]; // ml
+  const MODAL_PRESETS = [100, 200, 350, 500, 750, 1000];
 
   return function WaterTracker({ water, goals, onAddWater, onSetWater }: {
     water: WaterEntry;
@@ -102,66 +31,316 @@ export function createWaterTracker(Shared: SharedDependencies) {
     onAddWater: (ml: number) => void;
     onSetWater: (ml: number) => void;
   }) {
-    const [dialogOpen, setDialogOpen] = React.useState(false);
-    const pct = goals.water_ml > 0 ? Math.min((water.ml / goals.water_ml) * 100, 100) : 0;
+    const [customOpen, setCustomOpen] = React.useState(false);
+    const [customValue, setCustomValue] = React.useState<string>('');
 
-    return React.createElement(React.Fragment, null,
-      React.createElement(Card, null,
-        React.createElement(CardContent, { className: 'p-4' },
-          React.createElement('div', { className: 'flex items-center justify-between mb-3' },
-            React.createElement('div', { className: 'flex items-center gap-2' },
-              React.createElement(Droplets, { className: 'h-4 w-4 text-blue-500' }),
-              React.createElement('span', { className: 'text-sm font-semibold' }, 'Water'),
-            ),
-            React.createElement('span', { className: 'text-sm text-muted-foreground' },
-              `${water.ml} / ${goals.water_ml} ml`),
-          ),
+    const openCustom = React.useCallback(() => {
+      setCustomValue('');
+      setCustomOpen(true);
+    }, []);
 
-          React.createElement('div', { className: 'space-y-3' },
-            React.createElement('div', {
-              style: { height: '8px', width: '100%', overflow: 'hidden', borderRadius: '9999px', backgroundColor: 'hsl(var(--secondary))' },
+    const submitCustom = React.useCallback(() => {
+      const n = parseInt(customValue, 10);
+      if (Number.isFinite(n) && n > 0) {
+        onAddWater(n);
+        setCustomOpen(false);
+      }
+    }, [customValue, onAddWater]);
+    return React.createElement('div', {
+      style: {
+        background: 'var(--knf-surface)',
+        border: '1px solid var(--knf-hairline)',
+        borderRadius: 'var(--knf-radius-lg)',
+        boxShadow: 'var(--knf-shadow-sm)',
+        padding: 16,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+      },
+    },
+      // Header row
+      React.createElement('div', {
+        style: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+      },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+          React.createElement('div', {
+            style: {
+              width: 26, height: 26, borderRadius: 8,
+              background: `rgba(0, 134, 255, 0.12)`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             },
-              React.createElement('div', {
-                style: { height: '100%', borderRadius: '9999px', backgroundColor: 'hsl(217, 91%, 60%)', transition: 'width 400ms cubic-bezier(0.4, 0, 0.2, 1)', width: `${pct}%` },
-              }),
-            ),
-
-            React.createElement('div', { className: 'flex items-center justify-between' },
-              React.createElement('div', { className: 'flex gap-1' },
-                ...QUICK_ADD.map(ml =>
-                  React.createElement(Button, {
-                    key: ml, variant: 'outline', size: 'sm', className: 'h-7 text-xs',
-                    onClick: () => onAddWater(ml),
-                  },
-                    React.createElement(Plus, { className: 'h-3 w-3 mr-1' }),
-                    `${ml}ml`,
-                  ),
-                ),
-                React.createElement(Button, {
-                  variant: 'outline', size: 'sm', className: 'h-7 text-xs',
-                  onClick: () => setDialogOpen(true),
-                },
-                  React.createElement(Plus, { className: 'h-3 w-3 mr-1' }),
-                  'Custom',
-                ),
-              ),
-              React.createElement(Button, {
-                variant: 'ghost', size: 'sm', className: 'h-7 text-xs',
-                onClick: () => onSetWater(Math.max(0, water.ml - 250)),
-              },
-                React.createElement(Minus, { className: 'h-3 w-3 mr-1' }),
-                '250ml',
-              ),
-            ),
+          },
+            React.createElement(Droplets, {
+              style: { width: 14, height: 14, color: SIG_PALETTE.hydration },
+            }),
           ),
+          React.createElement('span', {
+            className: 'knf-eyebrow',
+            style: {
+              fontFamily: 'var(--knf-font-mono)',
+              fontSize: 11,
+              color: 'var(--knf-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.12em',
+              fontWeight: 500,
+            },
+          }, 'Water'),
+        ),
+        React.createElement('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 3,
+          },
+        },
+          React.createElement(NumericReadout, {
+            value: water.ml,
+            format: (n: number) => Math.round(n).toLocaleString(),
+            style: {
+              fontSize: 26, fontWeight: 700,
+              color: SIG_PALETTE.hydration,
+              fontFamily: 'var(--knf-font-mono)',
+            },
+          }),
+          React.createElement('span', {
+            style: {
+              fontSize: 12,
+              color: 'var(--knf-muted)',
+              fontFamily: 'var(--knf-font-mono)',
+            },
+          }, `/ ${goals.water_ml.toLocaleString()} ml`),
         ),
       ),
 
-      React.createElement(AddWaterDialog, {
-        open: dialogOpen,
-        onOpenChange: setDialogOpen,
-        onAdd: onAddWater,
+      // Progress bar
+      React.createElement(DataBar, {
+        value: water.ml,
+        max: goals.water_ml,
+        accent: 'hydration',
+        height: 8,
       }),
+
+      // Quick-add buttons
+      React.createElement('div', {
+        style: {
+          display: 'flex',
+          gap: 6,
+          alignItems: 'center',
+          flexWrap: 'wrap',
+        },
+      },
+        ...QUICK_ADDS.map(ml =>
+          React.createElement('button', {
+            key: ml, type: 'button',
+            onClick: () => onAddWater(ml),
+            style: {
+              padding: '6px 12px',
+              background: 'var(--knf-hero-wash)',
+              border: '1px solid var(--knf-hero-edge)',
+              borderRadius: 'var(--knf-radius-pill)',
+              color: 'var(--knf-hero-ink)',
+              fontSize: 12,
+              fontWeight: 600,
+              fontFamily: 'var(--knf-font-mono)',
+              fontVariantNumeric: 'tabular-nums',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 3,
+              transition: 'transform var(--knf-duration-1) var(--knf-ease), background var(--knf-duration-1) var(--knf-ease)',
+            },
+            onMouseDown: (e: any) => { e.currentTarget.style.transform = 'scale(0.97)'; },
+            onMouseUp: (e: any) => { e.currentTarget.style.transform = 'scale(1)'; },
+            onMouseLeave: (e: any) => { e.currentTarget.style.transform = 'scale(1)'; },
+          },
+            React.createElement(Plus, { className: 'h-3 w-3' }),
+            `${ml} ml`,
+          ),
+        ),
+        // Custom amount \u2014 icon-only "+" pops a modal
+        React.createElement('button', {
+          type: 'button',
+          onClick: openCustom,
+          'aria-label': 'Log custom amount',
+          title: 'Custom amount',
+          style: {
+            width: 28,
+            height: 28,
+            padding: 0,
+            background: 'var(--knf-surface)',
+            border: '1px dashed var(--knf-hero-edge)',
+            borderRadius: '9999px',
+            color: 'var(--knf-hero-ink)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform var(--knf-duration-1) var(--knf-ease), background var(--knf-duration-1) var(--knf-ease)',
+          },
+          onMouseEnter: (e: any) => { e.currentTarget.style.background = 'var(--knf-hero-wash)'; },
+          onMouseLeave: (e: any) => { e.currentTarget.style.background = 'var(--knf-surface)'; e.currentTarget.style.transform = 'scale(1)'; },
+          onMouseDown: (e: any) => { e.currentTarget.style.transform = 'scale(0.94)'; },
+          onMouseUp: (e: any) => { e.currentTarget.style.transform = 'scale(1)'; },
+        },
+          React.createElement(Plus, { style: { width: 14, height: 14 } }),
+        ),
+        React.createElement('div', { style: { flex: 1 } }),
+        React.createElement('button', {
+          type: 'button',
+          onClick: () => onSetWater(Math.max(0, water.ml - 250)),
+          style: {
+            padding: '6px 12px',
+            background: 'transparent',
+            border: '1px solid var(--knf-hairline)',
+            borderRadius: 'var(--knf-radius-pill)',
+            color: 'var(--knf-muted)',
+            fontSize: 12,
+            fontWeight: 500,
+            fontFamily: 'var(--knf-font-mono)',
+            cursor: 'pointer',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 3,
+            transition: 'transform var(--knf-duration-1) var(--knf-ease)',
+          },
+        },
+          React.createElement(Minus, { className: 'h-3 w-3' }),
+          '250',
+        ),
+      ),
+
+      // Custom amount modal
+      React.createElement(Dialog, { open: customOpen, onOpenChange: setCustomOpen },
+        React.createElement(DialogContent, {
+          style: { maxWidth: 380 },
+        },
+          React.createElement(DialogHeader, null,
+            React.createElement(DialogTitle, {
+              style: {
+                fontFamily: 'var(--knf-font-display)',
+                fontSize: 22,
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+              },
+            }, 'Log water'),
+            React.createElement(DialogDescription, null, 'Enter any amount in millilitres.'),
+          ),
+          // Input row
+          React.createElement('div', {
+            style: {
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 8,
+              marginTop: 4,
+            },
+          },
+            React.createElement(Input, {
+              type: 'number',
+              inputMode: 'numeric',
+              min: 1,
+              step: 50,
+              placeholder: '500',
+              value: customValue,
+              onChange: (e: any) => setCustomValue(e.target.value),
+              onKeyDown: (e: any) => { if (e.key === 'Enter') submitCustom(); },
+              autoFocus: true,
+              style: {
+                flex: 1,
+                fontFamily: 'var(--knf-font-mono)',
+                fontVariantNumeric: 'tabular-nums',
+                fontSize: 18,
+                fontWeight: 600,
+              },
+            }),
+            React.createElement('div', {
+              style: {
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '0 14px',
+                background: 'var(--knf-surface-2)',
+                border: '1px solid var(--knf-hairline)',
+                borderRadius: 'var(--knf-radius-md)',
+                fontFamily: 'var(--knf-font-mono)',
+                fontSize: 12,
+                color: 'var(--knf-muted)',
+                letterSpacing: '0.1em',
+              },
+            }, 'ML'),
+          ),
+          // Preset chips
+          React.createElement('div', {
+            style: {
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 6,
+              marginTop: 12,
+            },
+          },
+            ...MODAL_PRESETS.map((ml) =>
+              React.createElement('button', {
+                key: ml,
+                type: 'button',
+                onClick: () => setCustomValue(String(ml)),
+                style: {
+                  padding: '4px 10px',
+                  background: String(ml) === customValue ? 'var(--knf-hero-wash)' : 'transparent',
+                  border: `1px solid ${String(ml) === customValue ? 'var(--knf-hero-edge)' : 'var(--knf-hairline)'}`,
+                  borderRadius: 'var(--knf-radius-pill)',
+                  color: String(ml) === customValue ? 'var(--knf-hero-ink)' : 'var(--knf-muted)',
+                  fontFamily: 'var(--knf-font-mono)',
+                  fontVariantNumeric: 'tabular-nums',
+                  fontSize: 11,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background var(--knf-duration-1) var(--knf-ease), color var(--knf-duration-1) var(--knf-ease), border-color var(--knf-duration-1) var(--knf-ease)',
+                },
+              }, `${ml} ml`),
+            ),
+          ),
+          // Footer actions
+          React.createElement(DialogFooter, {
+            style: { marginTop: 16, display: 'flex', gap: 8, justifyContent: 'flex-end' },
+          },
+            React.createElement('button', {
+              type: 'button',
+              onClick: () => setCustomOpen(false),
+              style: {
+                padding: '8px 14px',
+                background: 'transparent',
+                border: '1px solid var(--knf-hairline)',
+                borderRadius: 'var(--knf-radius-pill)',
+                color: 'var(--knf-muted)',
+                fontFamily: 'var(--knf-font-body)',
+                fontSize: 13,
+                fontWeight: 500,
+                cursor: 'pointer',
+              },
+            }, 'Cancel'),
+            React.createElement('button', {
+              type: 'button',
+              onClick: submitCustom,
+              disabled: !customValue || !Number.isFinite(parseInt(customValue, 10)) || parseInt(customValue, 10) <= 0,
+              style: {
+                padding: '8px 16px',
+                background: 'var(--knf-hero)',
+                border: '1px solid var(--knf-hero-edge)',
+                borderRadius: 'var(--knf-radius-pill)',
+                color: 'var(--knf-hero-ink)',
+                fontFamily: 'var(--knf-font-body)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+                opacity: !customValue || parseInt(customValue, 10) <= 0 ? 0.5 : 1,
+                transition: 'transform var(--knf-duration-1) var(--knf-ease)',
+              },
+            }, 'Add to today'),
+          ),
+        ),
+      ),
     );
   };
 }

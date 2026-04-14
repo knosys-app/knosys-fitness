@@ -281,3 +281,21 @@ export interface FitnessSettings {
   show_micros: boolean;
   chart_range: '7d' | '30d' | '90d';
 }
+
+// ============================================================
+// Wellness (Sleep / Steps / Resting HR) — NEW
+// ============================================================
+
+export interface WellnessEntry {
+  date: string;
+  sleep_minutes?: number;
+  steps?: number;
+  resting_hr_bpm?: number;
+  notes?: string;
+}
+
+export interface WellnessGoals {
+  sleep_minutes: number;
+  steps: number;
+  resting_hr_bpm?: number;
+}

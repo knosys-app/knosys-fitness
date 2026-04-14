@@ -1,70 +1,176 @@
 import type { SharedDependencies } from '../types';
 
+/**
+ * Signature skeletons — hairline borders, chartreuse-wash pulse.
+ *
+ * Exports three factory-returning skeletons:
+ *  - createDiarySkeleton(Shared)  → meal-card skeleton stack
+ *  - createChartSkeleton(Shared)  → chart card skeleton
+ *  - createTileSkeleton(Shared)   → stat-tile skeleton
+ *
+ * Also keeps the previous `createSkeletonComponents(Shared)` entry point
+ * (returning Pulse / DiarySkeleton / ChartSkeleton) for back-compat with
+ * any consumers still importing that shape. All pulses use the `knf-pulse`
+ * utility from styles.css so animation scopes to plugin root.
+ */
 export function createSkeletonComponents(Shared: SharedDependencies) {
-  const { React } = Shared;
+  const { React, cn } = Shared;
 
-  function Pulse({ width, height, style }: { width?: string | number; height?: string | number; style?: any }) {
+  function Pulse({
+    width,
+    height,
+    radius,
+    style,
+    className,
+  }: {
+    width?: string | number;
+    height?: string | number;
+    radius?: string | number;
+    style?: any;
+    className?: string;
+  }) {
     return React.createElement('div', {
+      className: cn('knf-pulse', className),
       style: {
         width: typeof width === 'number' ? `${width}px` : width ?? '100%',
-        height: typeof height === 'number' ? `${height}px` : height ?? '16px',
-        backgroundColor: 'hsl(var(--muted))',
-        borderRadius: '6px',
-        animation: 'fitnessPulse 1.6s ease-in-out infinite',
+        height: typeof height === 'number' ? `${height}px` : height ?? '14px',
+        background:
+          'linear-gradient(90deg, var(--knf-surface-2) 0%, var(--knf-hero-wash) 50%, var(--knf-surface-2) 100%)',
+        backgroundSize: '200% 100%',
+        borderRadius:
+          typeof radius === 'number'
+            ? `${radius}px`
+            : radius ?? 'var(--knf-radius-sm)',
         ...style,
       },
     });
   }
 
-  // CSS for the pulse animation — injected once on first use
-  let injected = false;
-  function ensureCss() {
-    if (injected || typeof document === 'undefined') return;
-    injected = true;
-    const style = document.createElement('style');
-    style.textContent = `
-      @keyframes fitnessPulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-      }
-    `;
-    document.head.appendChild(style);
+  function TileSkeleton() {
+    return React.createElement(
+      'div',
+      {
+        style: {
+          background: 'var(--knf-surface)',
+          border: '1px solid var(--knf-hairline)',
+          borderRadius: 'var(--knf-radius-md)',
+          padding: '12px 14px',
+          minHeight: 82,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+          boxShadow: 'var(--knf-shadow-sm)',
+        },
+      },
+      React.createElement(Pulse, { height: 11, width: '45%' }),
+      React.createElement(Pulse, { height: 24, width: '70%' }),
+      React.createElement(Pulse, { height: 10, width: '35%' }),
+    );
+  }
+
+  function ChartSkeleton({ height = 200 }: { height?: number }) {
+    return React.createElement(
+      'div',
+      {
+        style: {
+          background: 'var(--knf-surface)',
+          border: '1px solid var(--knf-hairline)',
+          borderRadius: 'var(--knf-radius-lg)',
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 12,
+          boxShadow: 'var(--knf-shadow-sm)',
+        },
+      },
+      React.createElement(
+        'div',
+        { style: { display: 'flex', justifyContent: 'space-between' } },
+        React.createElement(Pulse, { height: 12, width: 100 }),
+        React.createElement(Pulse, { height: 12, width: 60 }),
+      ),
+      React.createElement(Pulse, { height, radius: 'var(--knf-radius-md)' }),
+    );
   }
 
   function DiarySkeleton() {
-    ensureCss();
-    return React.createElement('div', { className: 'p-4 space-y-4 max-w-2xl mx-auto' },
-      // Macro ring + bars skeleton
-      React.createElement('div', { className: 'space-y-3' },
-        React.createElement('div', { className: 'flex items-center gap-4' },
-          React.createElement(Pulse, { width: 104, height: 104, style: { borderRadius: '9999px' } }),
-          React.createElement('div', { className: 'flex-1 space-y-2' },
-            React.createElement(Pulse, { height: 14 }),
-            React.createElement(Pulse, { height: 14, width: '80%' }),
-            React.createElement(Pulse, { height: 14, width: '60%' }),
-          ),
+    return React.createElement(
+      'div',
+      {
+        style: {
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+          maxWidth: 720,
+          margin: '0 auto',
+          padding: 16,
+        },
+      },
+      // Macro header
+      React.createElement(
+        'div',
+        {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: 16,
+            background: 'var(--knf-surface)',
+            border: '1px solid var(--knf-hairline)',
+            borderRadius: 'var(--knf-radius-lg)',
+            boxShadow: 'var(--knf-shadow-sm)',
+          },
+        },
+        React.createElement(Pulse, {
+          width: 96,
+          height: 96,
+          radius: '9999px',
+        }),
+        React.createElement(
+          'div',
+          { style: { flex: 1, display: 'flex', flexDirection: 'column', gap: 8 } },
+          React.createElement(Pulse, { height: 14, width: '50%' }),
+          React.createElement(Pulse, { height: 14, width: '80%' }),
+          React.createElement(Pulse, { height: 14, width: '60%' }),
         ),
-        React.createElement(Pulse, { height: 8 }),
-        React.createElement(Pulse, { height: 8 }),
-        React.createElement(Pulse, { height: 8 }),
       ),
-      // Meal section skeletons
-      ...[0, 1, 2, 3].map(i =>
-        React.createElement('div', { key: i, className: 'rounded-lg border p-3 space-y-2' },
-          React.createElement(Pulse, { height: 16, width: '40%' }),
-          React.createElement(Pulse, { height: 12, width: '25%' }),
+      // Meal cards
+      ...[0, 1, 2, 3].map((i) =>
+        React.createElement(
+          'div',
+          {
+            key: i,
+            style: {
+              background: 'var(--knf-surface)',
+              border: '1px solid var(--knf-hairline)',
+              borderRadius: 'var(--knf-radius-lg)',
+              padding: 14,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              boxShadow: 'var(--knf-shadow-sm)',
+            },
+          },
+          React.createElement(Pulse, { height: 14, width: '35%' }),
+          React.createElement(Pulse, { height: 10, width: '22%' }),
         ),
       ),
     );
   }
 
-  function ChartSkeleton({ height }: { height?: number }) {
-    ensureCss();
-    return React.createElement('div', { className: 'space-y-2' },
-      React.createElement(Pulse, { height: 14, width: '30%' }),
-      React.createElement(Pulse, { height: height ?? 200 }),
-    );
-  }
+  return { Pulse, DiarySkeleton, ChartSkeleton, TileSkeleton };
+}
 
-  return { Pulse, DiarySkeleton, ChartSkeleton };
+// Convenience standalone factories -----------------------------------------
+
+export function createDiarySkeleton(Shared: SharedDependencies) {
+  return createSkeletonComponents(Shared).DiarySkeleton;
+}
+
+export function createChartSkeleton(Shared: SharedDependencies) {
+  return createSkeletonComponents(Shared).ChartSkeleton;
+}
+
+export function createTileSkeleton(Shared: SharedDependencies) {
+  return createSkeletonComponents(Shared).TileSkeleton;
 }

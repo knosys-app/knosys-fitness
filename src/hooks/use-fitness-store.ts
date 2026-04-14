@@ -1,9 +1,15 @@
-import type { SharedDependencies, PluginAPI, MealType, MealLog, Goals, FoodEntry, NormalizedFood, ExerciseEntry, ExerciseLog, WaterEntry, WeightEntry, FitnessSettings, UserProfile } from '../types';
+import type { SharedDependencies, PluginAPI, MealType, MealLog, Goals, FoodEntry, NormalizedFood, ExerciseEntry, ExerciseLog, WaterEntry, WeightEntry, FitnessSettings, UserProfile, WellnessEntry, WellnessGoals } from '../types';
 import { createStorage, type FitnessStorage } from '../store/storage';
 import { toDateKey, uuid } from '../utils/date-helpers';
 import { searchOpenFoodFacts } from '../api/open-food-facts';
 import { searchUSDA } from '../api/usda';
 import { recipeToFood } from '../utils/recipe-to-food';
+
+/** Default wellness goals — can be overridden in Settings by TL later. */
+const DEFAULT_WELLNESS_GOALS: WellnessGoals = {
+  sleep_minutes: 480, // 8h
+  steps: 10000,
+};
 
 // Singleton store state shared across components
 let _storage: FitnessStorage | null = null;
@@ -216,5 +222,77 @@ export function createUseFoodSearch(Shared: SharedDependencies) {
       query, setQuery: debouncedSearch, results, searching, source, setSource,
       recentFoods, frequentFoods, customFoods,
     };
+  };
+}
+
+/**
+ * Hook for wellness data for a single day.
+ * Loads the day's entry + global wellness goals on mount, exposes
+ * `saveWellness(partial)` for incremental updates (merged with existing
+ * values so individual fields can be edited without clobbering others).
+ */
+export function createUseWellness(Shared: SharedDependencies) {
+  const { useState, useEffect, useCallback } = Shared;
+
+  return function useWellness(dateKey: string) {
+    const [entry, setEntry] = useState<WellnessEntry>({ date: dateKey });
+    const [goals, setGoals] = useState<WellnessGoals>(DEFAULT_WELLNESS_GOALS);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+      const s = getStorage();
+      setLoading(true);
+      const [e, g] = await Promise.all([
+        s.getWellness(dateKey),
+        // WellnessGoals are stored alongside Goals on the same key for v1.
+        // If they exist as a nested field we read them; otherwise use defaults.
+        s.getGoals().then((goalsObj: any) => {
+          const w = goalsObj && goalsObj.wellness ? goalsObj.wellness : null;
+          return w
+            ? { ...DEFAULT_WELLNESS_GOALS, ...w }
+            : DEFAULT_WELLNESS_GOALS;
+        }),
+      ]);
+      setEntry(e);
+      setGoals(g);
+      setLoading(false);
+    }, [dateKey]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const saveWellness = useCallback(async (partial: Partial<WellnessEntry>) => {
+      const s = getStorage();
+      const current = await s.getWellness(dateKey);
+      const next: WellnessEntry = { ...current, ...partial, date: dateKey };
+      await s.setWellness(dateKey, next);
+      setEntry(next);
+    }, [dateKey]);
+
+    return { entry, goals, loading, saveWellness, reload: load };
+  };
+}
+
+/**
+ * Hook for wellness data across a date range.
+ * Returns sorted entries for consumers (e.g., Trends or sparklines).
+ */
+export function createUseWellnessRange(Shared: SharedDependencies) {
+  const { useState, useEffect, useCallback } = Shared;
+
+  return function useWellnessRange(startDate: string, endDate: string) {
+    const [entries, setEntries] = useState<WellnessEntry[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    const load = useCallback(async () => {
+      const s = getStorage();
+      setLoading(true);
+      const results = await s.getWellnessRange(startDate, endDate);
+      setEntries(results);
+      setLoading(false);
+    }, [startDate, endDate]);
+
+    useEffect(() => { load(); }, [load]);
+
+    return { entries, loading, reload: load };
   };
 }

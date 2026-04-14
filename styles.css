@@ -1,0 +1,314 @@
+/* ============================================================
+   knosys-fitness — Signature Design System
+   Scoped under .knosys-fitness-root so it cannot leak into host.
+   ============================================================ */
+
+.knosys-fitness-root {
+  /* ---- Signature surface tokens ---- */
+  --knf-bg: #FAFAF7;
+  --knf-surface: #FFFFFF;
+  --knf-surface-2: #F4F3EE;
+  --knf-ink: #0C0E05;
+  --knf-ink-2: #3F4A2A;
+  --knf-muted: #8A8F82;
+  --knf-hairline: #E6E6DC;
+
+  /* ---- Signature hero accent ---- */
+  --knf-hero: #B8E82A;
+  --knf-hero-ink: #3F5A00;
+  --knf-hero-wash: #EEF9CF;
+  --knf-hero-edge: #A8DC19;
+
+  /* ---- Semantic colors (one token per metric meaning) ---- */
+  --knf-cal-burn: #FF5C1F;
+  --knf-protein: #8B5CF6;
+  --knf-carbs: #F0B429;
+  --knf-fat: #EC4B8C;
+  --knf-hydration: #0086FF;
+  --knf-steps: #00C08B;
+  --knf-sleep: #6B5EFF;
+  --knf-heart: #FF2D55;
+  --knf-weight-down: #00A86B;
+  --knf-weight-up: #FF6B35;
+
+  /* ---- State ---- */
+  --knf-success: #00A86B;
+  --knf-warning: #FFB400;
+  --knf-alert: #FF3B30;
+
+  /* ---- Typography ---- */
+  --knf-font-display: "Bricolage Grotesque", system-ui, -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --knf-font-body: system-ui, -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+  --knf-font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --knf-font-base: 14px;
+
+  --knf-text-micro: 11px;
+  --knf-text-body: 14px;
+  --knf-text-lede: 16px;
+  --knf-text-h5: 18px;
+  --knf-text-h4: 22px;
+  --knf-text-h3: 28px;
+  --knf-text-h2: 40px;
+  --knf-text-h1: 56px;
+  --knf-text-mega: 88px;
+
+  /* ---- Motion ---- */
+  --knf-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --knf-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --knf-duration-1: 180ms;
+  --knf-duration-2: 360ms;
+  --knf-duration-3: 620ms;
+
+  /* ---- Radius ---- */
+  --knf-radius-sm: 8px;
+  --knf-radius-md: 12px;
+  --knf-radius-lg: 14px;
+  --knf-radius-pill: 999px;
+
+  /* ---- Shadow ---- */
+  --knf-shadow-sm: 0 1px 2px rgba(12, 14, 5, 0.04);
+  --knf-shadow-md: 0 4px 12px rgba(12, 14, 5, 0.06);
+  --knf-shadow-lg: 0 8px 24px rgba(12, 14, 5, 0.08);
+
+  /* =================================================================
+     Host token overrides — re-scope shadcn/Tailwind tokens to signature
+     values. Host uses `hsl(var(--foo))` patterns, so values here MUST
+     be HSL triplets WITHOUT the hsl() wrapper.
+     (Host format reference: apps/desktop/src/index.css `--background: 0 0% 100%`)
+     ================================================================= */
+
+  /* #FAFAF7 → 60 20% 97.1% */
+  --background: 60 20% 97.1%;
+  /* #0C0E05 → 72 42% 3.5% */
+  --foreground: 72 42% 3.5%;
+  /* #FFFFFF */
+  --card: 0 0% 100%;
+  --card-foreground: 72 42% 3.5%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 72 42% 3.5%;
+  /* #B8E82A → 75 80% 53.5% */
+  --primary: 75 80% 53.5%;
+  /* Chartreuse needs dark text on top — #3F5A00 → 76 100% 17.6% */
+  --primary-foreground: 76 100% 17.6%;
+  /* #F4F3EE → 48 20% 94.5% */
+  --secondary: 48 20% 94.5%;
+  --secondary-foreground: 72 42% 3.5%;
+  --muted: 48 20% 94.5%;
+  /* #8A8F82 → 83 5.5% 53.5% */
+  --muted-foreground: 83 5.5% 53.5%;
+  --accent: 75 80% 53.5%;
+  --accent-foreground: 76 100% 17.6%;
+  /* #E6E6DC → 60 18% 88.2% */
+  --border: 60 18% 88.2%;
+  --input: 60 18% 88.2%;
+  --ring: 75 80% 53.5%;
+  /* #FF3B30 → 3 100% 59% */
+  --destructive: 3 100% 59%;
+  --destructive-foreground: 0 0% 100%;
+
+  /* Sidebar tokens — keep signature so any plugin-internal sidebars match */
+  --sidebar-background: 60 20% 97.1%;
+  --sidebar-foreground: 72 42% 3.5%;
+  --sidebar-primary: 75 80% 53.5%;
+  --sidebar-primary-foreground: 76 100% 17.6%;
+  --sidebar-accent: 48 20% 94.5%;
+  --sidebar-accent-foreground: 72 42% 3.5%;
+  --sidebar-border: 60 18% 88.2%;
+  --sidebar-ring: 75 80% 53.5%;
+
+  /* Chart tokens used by shadcn chart utilities */
+  --chart-1: 75 80% 53.5%;    /* hero */
+  --chart-2: 260 85% 67%;     /* protein */
+  --chart-3: 41 87% 51%;      /* carbs */
+  --chart-4: 334 80% 61%;     /* fat */
+  --chart-5: 210 100% 50%;    /* hydration */
+
+  /* ---- Root-level visuals ---- */
+  background: var(--knf-bg);
+  color: var(--knf-ink);
+  font-family: var(--knf-font-body);
+  font-size: var(--knf-text-body);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* ================================================================
+   Utility classes (scoped)
+   ================================================================ */
+
+.knosys-fitness-root .knf-display {
+  font-family: var(--knf-font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variation-settings: "wdth" 95, "GRAD" 0;
+}
+
+.knosys-fitness-root .knf-display-mega {
+  font-family: var(--knf-font-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  font-variation-settings: "wdth" 92, "GRAD" 120;
+}
+
+.knosys-fitness-root .knf-mono {
+  font-family: var(--knf-font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  font-feature-settings: "tnum", "zero";
+}
+
+.knosys-fitness-root .knf-eyebrow {
+  font-family: var(--knf-font-mono);
+  font-size: var(--knf-text-micro);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--knf-muted);
+}
+
+.knosys-fitness-root .knf-hairline {
+  border: 1px solid var(--knf-hairline);
+}
+
+.knosys-fitness-root .knf-hairline-top {
+  border-top: 1px solid var(--knf-hairline);
+}
+
+.knosys-fitness-root .knf-hairline-bottom {
+  border-bottom: 1px solid var(--knf-hairline);
+}
+
+/* Reveal animation — applied via class + inline animation-delay */
+.knosys-fitness-root .knf-reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  animation: knfReveal var(--knf-duration-2) var(--knf-ease-out) forwards;
+}
+
+.knosys-fitness-root .knf-pulse {
+  animation: knfPulse 1200ms ease-in-out infinite;
+}
+
+/* ================================================================
+   Keyframes
+   ================================================================ */
+
+@keyframes knfReveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes knfDraw {
+  from {
+    stroke-dashoffset: var(--knf-dash-full, 1000);
+  }
+  to {
+    stroke-dashoffset: var(--knf-dash-target, 0);
+  }
+}
+
+@keyframes knfPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@keyframes knfFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ================================================================
+   Focus visible — chartreuse ring
+   ================================================================ */
+
+.knosys-fitness-root :focus-visible {
+  outline: 2px solid var(--knf-hero);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ================================================================
+   Reduced motion — respect user preference
+   ================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .knosys-fitness-root *,
+  .knosys-fitness-root *::before,
+  .knosys-fitness-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .knosys-fitness-root .knf-reveal {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ================================================================
+   Selection
+   ================================================================ */
+
+.knosys-fitness-root ::selection {
+  background: var(--knf-hero-wash);
+  color: var(--knf-hero-ink);
+}
+
+/* ================================================================
+   Scrollbars (subtle, signature)
+   ================================================================ */
+
+.knosys-fitness-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.knosys-fitness-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.knosys-fitness-root ::-webkit-scrollbar-thumb {
+  background: var(--knf-hairline);
+  border-radius: var(--knf-radius-pill);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.knosys-fitness-root ::-webkit-scrollbar-thumb:hover {
+  background: var(--knf-muted);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* ================================================================
+   Widget variant (monochrome — applied when plugin is embedded as
+   a dashboard widget, e.g. on the host home page)
+   ================================================================ */
+
+.knosys-fitness-root.knosys-fitness-widget {
+  --knf-hero: #3F5A00;
+  --knf-hero-wash: #F4F3EE;
+  --knf-hero-edge: #E6E6DC;
+  background: transparent;
+}
