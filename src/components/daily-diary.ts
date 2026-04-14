@@ -9,6 +9,7 @@ import { createMealSection } from './meal-section';
 import { createFoodSearchDialog } from './food-search';
 import { createFoodEntryForm } from './food-entry-form';
 import { createWaterTracker } from './water-tracker';
+import { createDiarySidebar } from './diary-sidebar';
 import { createSkeletonComponents } from './skeleton';
 
 export function createDailyDiary(Shared: SharedDependencies) {
@@ -37,6 +38,7 @@ export function createDailyDiary(Shared: SharedDependencies) {
   const FoodSearchDialog = createFoodSearchDialog(Shared);
   const FoodEntryForm = createFoodEntryForm(Shared);
   const WaterTracker = createWaterTracker(Shared);
+  const DiarySidebar = createDiarySidebar(Shared);
   const { DiarySkeleton } = createSkeletonComponents(Shared);
   const useDiary = createUseDiary(Shared);
 
@@ -103,40 +105,48 @@ export function createDailyDiary(Shared: SharedDependencies) {
         ),
       ),
 
-      // Scrollable content
+      // Scrollable content — 2-column dashboard on lg+
       React.createElement(ScrollArea, { className: 'flex-1' },
-        React.createElement('div', { className: 'p-4 space-y-4 max-w-2xl mx-auto' },
-          // Calorie & macro summary (has its own animations)
-          React.createElement(MacroProgress, {
-            calories: totals.calories,
-            protein_g: totals.protein_g,
-            carbs_g: totals.carbs_g,
-            fat_g: totals.fat_g,
-            goals: diary.goals,
-          }),
-
-          // Meal sections — staggered
-          ...MEAL_TYPES.map((mealType, i) =>
-            React.createElement(AnimatedItem, { key: mealType, delay: 150 + i * 100 },
-              React.createElement(MealSection, {
-                mealType,
-                meal: diary.meals[mealType],
-                onAddFood: () => handleAddFood(mealType),
-                onRemoveEntry: (id: string) => diary.removeFoodEntry(mealType, id),
-                onUpdateServings: (id: string, servings: number) => diary.updateFoodEntry(mealType, id, servings),
-                onSaveAsTemplate: () => handleSaveAsTemplate(mealType),
-              }),
-            ),
+        React.createElement('div', {
+          className: 'p-4 lg:p-6 grid gap-4 lg:gap-6 lg:grid-cols-[340px_1fr]',
+        },
+          // LEFT: Sidebar with summary + KPIs + sparkline
+          React.createElement(AnimatedItem, { delay: 0 },
+            React.createElement(DiarySidebar, {
+              calories: totals.calories,
+              protein_g: totals.protein_g,
+              carbs_g: totals.carbs_g,
+              fat_g: totals.fat_g,
+              goals: diary.goals,
+              water: diary.water,
+              exercise: diary.exercise,
+            }),
           ),
 
-          // Water
-          React.createElement(AnimatedItem, { delay: 550 },
-            React.createElement(WaterTracker, {
-              water: diary.water,
-              goals: diary.goals,
-              onAddWater: diary.addWater,
-              onSetWater: diary.setWaterAmount,
-            }),
+          // RIGHT: Meals + water
+          React.createElement('div', { className: 'space-y-3' },
+            ...MEAL_TYPES.map((mealType, i) =>
+              React.createElement(AnimatedItem, { key: mealType, delay: 100 + i * 80 },
+                React.createElement(MealSection, {
+                  mealType,
+                  meal: diary.meals[mealType],
+                  onAddFood: () => handleAddFood(mealType),
+                  onRemoveEntry: (id: string) => diary.removeFoodEntry(mealType, id),
+                  onUpdateServings: (id: string, servings: number) => diary.updateFoodEntry(mealType, id, servings),
+                  onSaveAsTemplate: () => handleSaveAsTemplate(mealType),
+                }),
+              ),
+            ),
+
+            // Water tracker stays in the right column for quick access
+            React.createElement(AnimatedItem, { delay: 500 },
+              React.createElement(WaterTracker, {
+                water: diary.water,
+                goals: diary.goals,
+                onAddWater: diary.addWater,
+                onSetWater: diary.setWaterAmount,
+              }),
+            ),
           ),
         ),
       ),

@@ -182,7 +182,7 @@ export function createFoodSearchDialog(Shared: SharedDependencies) {
 
     return React.createElement(Dialog, { open, onOpenChange },
       React.createElement(DialogContent, {
-        className: 'max-w-md flex flex-col',
+        className: 'max-w-lg flex flex-col',
         style: { maxHeight: '85vh' },
       },
         React.createElement(DialogHeader, null,

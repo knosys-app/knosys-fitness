@@ -173,26 +173,32 @@ export function createMealTemplates(Shared: SharedDependencies) {
             description: 'Save common meals once, log them in a click later.',
             action: { label: 'New Template', iconName: 'Plus', onClick: () => setCreateOpen(true) },
           })
-        : React.createElement('div', { className: 'space-y-2' },
+        : React.createElement('div', { className: 'grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' },
             ...templates.map(template => {
               const totalCal = template.items.reduce((sum, item) => sum + item.food.calories * item.servings, 0);
 
-              return React.createElement(Card, { key: template.id },
-                React.createElement(CardContent, { className: 'p-3 flex items-center justify-between' },
-                  React.createElement('div', { className: 'flex-1 min-w-0' },
-                    React.createElement('div', { className: 'text-sm font-medium' }, template.name),
-                    React.createElement('div', { className: 'text-xs text-muted-foreground' },
-                      `${template.items.length} item${template.items.length === 1 ? '' : 's'}${totalCal > 0 ? ` · ${formatCal(totalCal)} cal` : ''}`),
+              return React.createElement(Card, { key: template.id, className: 'group hover:border-primary/40 transition-colors' },
+                React.createElement(CardContent, { className: 'p-3 flex flex-col gap-2' },
+                  React.createElement('div', { className: 'flex items-start justify-between gap-2' },
+                    React.createElement('div', { className: 'flex-1 min-w-0' },
+                      React.createElement('div', { className: 'text-sm font-medium truncate' }, template.name),
+                      React.createElement('div', { className: 'text-[10px] text-muted-foreground tabular-nums' },
+                        `${template.items.length} item${template.items.length === 1 ? '' : 's'}`),
+                    ),
+                    React.createElement('div', { className: 'flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity' },
+                      React.createElement(Button, {
+                        variant: 'ghost', size: 'icon', className: 'h-6 w-6',
+                        onClick: () => setEditing(template),
+                      }, React.createElement(Pencil, { className: 'h-3 w-3' })),
+                      React.createElement(Button, {
+                        variant: 'ghost', size: 'icon', className: 'h-6 w-6',
+                        onClick: () => handleDelete(template.id),
+                      }, React.createElement(Trash2, { className: 'h-3 w-3 text-destructive' })),
+                    ),
                   ),
-                  React.createElement('div', { className: 'flex gap-1 ml-2' },
-                    React.createElement(Button, {
-                      variant: 'ghost', size: 'icon', className: 'h-7 w-7',
-                      onClick: () => setEditing(template),
-                    }, React.createElement(Pencil, { className: 'h-3.5 w-3.5' })),
-                    React.createElement(Button, {
-                      variant: 'ghost', size: 'icon', className: 'h-7 w-7',
-                      onClick: () => handleDelete(template.id),
-                    }, React.createElement(Trash2, { className: 'h-3.5 w-3.5 text-destructive' })),
+                  totalCal > 0 && React.createElement('div', { className: 'text-xl font-bold tabular-nums' },
+                    formatCal(totalCal),
+                    React.createElement('span', { className: 'text-[10px] font-normal text-muted-foreground ml-1' }, 'cal total'),
                   ),
                 ),
               );
