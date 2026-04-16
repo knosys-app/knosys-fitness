@@ -1,5 +1,4 @@
-import type { SharedDependencies, ExerciseLog as ExerciseLogType, ExerciseEntry } from '../types';
-import { formatCal } from '../utils/nutrients';
+import type { SharedDependencies, ExerciseLog as ExerciseLogType, ExerciseEntry, ExerciseSet } from '../types';
 import { createEmptyState } from './empty-state';
 import {
   createNumericReadout,
@@ -7,22 +6,53 @@ import {
 } from '../design-system/primitives';
 import { SIG_PALETTE } from '../theme/palette';
 
+function summarizeSets(sets: ExerciseSet[]): string {
+  if (!sets.length) return '0 sets';
+  const weights = sets.map(s => s.weight).filter((w): w is number => typeof w === 'number');
+  const unit = sets[0]?.weight_unit ?? 'lb';
+  const repsSame = sets.every(s => s.reps === sets[0].reps);
+  const weightSame = weights.length === sets.length && weights.every(w => w === weights[0]);
+  if (repsSame && weightSame && weights.length) {
+    return `${sets.length}×${sets[0].reps} @ ${weights[0]} ${unit}`;
+  }
+  const top = weights.length ? Math.max(...weights) : undefined;
+  return top != null
+    ? `${sets.length} sets · top ${top} ${unit}`
+    : `${sets.length} sets`;
+}
+
+function describeCardio(entry: ExerciseEntry): string {
+  const parts: string[] = [];
+  if (entry.duration_min != null) parts.push(`${entry.duration_min} min`);
+  if (entry.distance != null) parts.push(`${entry.distance} ${entry.distance_unit ?? 'km'}`);
+  return parts.join(' · ') || '—';
+}
+
 /**
- * ExerciseLog — redesigned signature variant. Renders the today's list
- * with an inline add form at the bottom (no dialog for the common case).
+ * ExerciseLog — redesigned signature variant. Post-catalog-port: no
+ * inline form. Primary actions open a search dialog / logger dialog
+ * owned by the parent (Today page or Workouts tab).
  */
 export function createExerciseLog(Shared: SharedDependencies) {
-  const { React, Button, Input, Label, lucideIcons } = Shared;
-  const { Flame, Plus, Trash2, X: XIcon } = lucideIcons;
+  const { React, Button, lucideIcons } = Shared;
+  const { Flame, Plus, Trash2, Pencil, History, ListPlus } = lucideIcons;
 
   const NumericReadout = createNumericReadout(Shared);
   const SemanticBadge = createSemanticBadge(Shared);
   const EmptyState = createEmptyState(Shared);
 
-  function ExerciseRow({ entry, onRemove }: {
-    entry: ExerciseEntry; onRemove: () => void;
+  function ExerciseRow({ entry, onEdit, onRemove, onOpenHistory }: {
+    entry: ExerciseEntry;
+    onEdit: () => void;
+    onRemove: () => void;
+    onOpenHistory?: () => void;
   }) {
     const [hovered, setHovered] = React.useState(false);
+    const isStrength = entry.kind === 'strength' && !!entry.sets?.length;
+    const summary = isStrength
+      ? summarizeSets(entry.sets!)
+      : describeCardio(entry);
+
     return React.createElement('div', {
       onMouseEnter: () => setHovered(true),
       onMouseLeave: () => setHovered(false),
@@ -37,17 +67,35 @@ export function createExerciseLog(Shared: SharedDependencies) {
         background: hovered ? 'var(--knf-hero-wash)' : 'transparent',
       },
     },
-      React.createElement('div', { style: { flex: 1, minWidth: 0 } },
-        React.createElement('div', {
-          style: {
-            fontSize: 13,
-            fontWeight: 500,
-            color: 'var(--knf-ink)',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          },
-        }, entry.name),
+      React.createElement('button', {
+        onClick: () => {
+          if (entry.exercise_id && onOpenHistory) onOpenHistory();
+          else onEdit();
+        },
+        style: {
+          flex: 1, minWidth: 0, textAlign: 'left',
+          background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+        },
+      },
+        React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
+          React.createElement('span', {
+            style: {
+              fontSize: 13, fontWeight: 500, color: 'var(--knf-ink)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            },
+          }, entry.name),
+          isStrength && React.createElement('span', {
+            style: {
+              fontSize: 9,
+              fontFamily: 'var(--knf-font-mono)',
+              color: 'var(--knf-muted)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.1em',
+              fontWeight: 600,
+              flexShrink: 0,
+            },
+          }, 'ST'),
+        ),
         React.createElement('div', {
           style: {
             fontSize: 11,
@@ -56,18 +104,15 @@ export function createExerciseLog(Shared: SharedDependencies) {
             fontVariantNumeric: 'tabular-nums',
             marginTop: 2,
           },
-        }, `${entry.duration_min} min`),
+        }, summary),
       ),
       React.createElement('div', {
         style: {
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          flexShrink: 0,
+          display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
         },
       },
         React.createElement(SemanticBadge, { accent: 'cal-burn', variant: 'soft' },
-          `${entry.calories_burned} cal`,
+          `${entry.calories_burned ?? 0} cal`,
         ),
         React.createElement(Button, {
           variant: 'ghost', size: 'icon',
@@ -76,7 +121,21 @@ export function createExerciseLog(Shared: SharedDependencies) {
             opacity: hovered ? 1 : 0,
             transition: 'opacity var(--knf-duration-1) var(--knf-ease)',
           },
+          onClick: onEdit,
+          'aria-label': 'Edit exercise',
+        }, React.createElement(Pencil, {
+          className: 'h-3.5 w-3.5',
+          style: { color: 'var(--knf-muted)' },
+        })),
+        React.createElement(Button, {
+          variant: 'ghost', size: 'icon',
+          className: 'h-7 w-7',
+          style: {
+            opacity: hovered ? 1 : 0,
+            transition: 'opacity var(--knf-duration-1) var(--knf-ease)',
+          },
           onClick: onRemove,
+          'aria-label': 'Remove exercise',
         }, React.createElement(Trash2, {
           className: 'h-3.5 w-3.5',
           style: { color: 'var(--knf-alert)' },
@@ -85,109 +144,18 @@ export function createExerciseLog(Shared: SharedDependencies) {
     );
   }
 
-  function InlineAddForm({ onAdd, onCancel }: {
-    onAdd: (name: string, duration: number, calories: number) => void;
-    onCancel: () => void;
-  }) {
-    const [name, setName] = React.useState('');
-    const [duration, setDuration] = React.useState('30');
-    const [calories, setCalories] = React.useState('');
-
-    const valid = name.trim().length > 0;
-    const handleAdd = () => {
-      if (!valid) return;
-      onAdd(name.trim(), parseInt(duration) || 0, parseInt(calories) || 0);
-      setName(''); setDuration('30'); setCalories('');
-    };
-
-    return React.createElement('div', {
-      style: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 8,
-        padding: 12,
-        marginTop: 8,
-        background: 'var(--knf-surface-2)',
-        borderRadius: 'var(--knf-radius-md)',
-      },
-    },
-      React.createElement(Input, {
-        placeholder: 'Exercise name (e.g. Running, Cycling)',
-        value: name,
-        onChange: (e: any) => setName(e.target.value),
-        autoFocus: true,
-        style: {
-          height: 36,
-          background: 'var(--knf-surface)',
-          fontFamily: 'var(--knf-font-body)',
-        },
-      }),
-      React.createElement('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
-        React.createElement('div', null,
-          React.createElement('label', {
-            style: {
-              fontSize: 10,
-              color: 'var(--knf-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              fontFamily: 'var(--knf-font-mono)',
-              fontWeight: 500,
-              display: 'block',
-              marginBottom: 3,
-            },
-          }, 'Duration (min)'),
-          React.createElement(Input, {
-            type: 'number', min: 1, value: duration,
-            onChange: (e: any) => setDuration(e.target.value),
-            style: { height: 34, fontFamily: 'var(--knf-font-mono)', background: 'var(--knf-surface)' },
-          }),
-        ),
-        React.createElement('div', null,
-          React.createElement('label', {
-            style: {
-              fontSize: 10,
-              color: 'var(--knf-muted)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.1em',
-              fontFamily: 'var(--knf-font-mono)',
-              fontWeight: 500,
-              display: 'block',
-              marginBottom: 3,
-            },
-          }, 'Calories burned'),
-          React.createElement(Input, {
-            type: 'number', min: 0, value: calories,
-            placeholder: '0',
-            onChange: (e: any) => setCalories(e.target.value),
-            style: { height: 34, fontFamily: 'var(--knf-font-mono)', background: 'var(--knf-surface)' },
-          }),
-        ),
-      ),
-      React.createElement('div', { style: { display: 'flex', gap: 6 } },
-        React.createElement(Button, {
-          variant: 'ghost', size: 'sm', className: 'flex-1 h-8',
-          onClick: onCancel,
-        }, 'Cancel'),
-        React.createElement(Button, {
-          size: 'sm',
-          className: 'flex-1 h-8',
-          disabled: !valid,
-          style: { background: 'var(--knf-hero)', color: 'var(--knf-hero-ink)' },
-          onClick: handleAdd,
-        }, 'Add'),
-      ),
-    );
-  }
-
-  return function ExerciseLogComponent({ exercise, onAddExercise, onRemoveExercise }: {
+  return function ExerciseLogComponent({
+    exercise, onAdd, onEdit, onRemove, onOpenHistory, onOpenTemplates,
+  }: {
     exercise: ExerciseLogType;
-    onAddExercise: (name: string, duration: number, calories: number) => void;
-    onRemoveExercise: (id: string) => void;
+    onAdd: () => void;
+    onEdit: (entry: ExerciseEntry) => void;
+    onRemove: (id: string) => void;
+    onOpenHistory?: (entry: ExerciseEntry) => void;
+    onOpenTemplates?: () => void;
   }) {
-    const [formOpen, setFormOpen] = React.useState(false);
-    const totalCal = exercise.entries.reduce((sum, e) => sum + e.calories_burned, 0);
-    const totalMin = exercise.entries.reduce((sum, e) => sum + e.duration_min, 0);
-
+    const totalCal = exercise.entries.reduce((sum, e) => sum + (e.calories_burned ?? 0), 0);
+    const totalMin = exercise.entries.reduce((sum, e) => sum + (e.duration_min ?? 0), 0);
     const empty = exercise.entries.length === 0;
 
     return React.createElement('div', {
@@ -202,9 +170,7 @@ export function createExerciseLog(Shared: SharedDependencies) {
       // Header
       React.createElement('div', {
         style: {
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           marginBottom: empty ? 0 : 10,
         },
       },
@@ -212,7 +178,7 @@ export function createExerciseLog(Shared: SharedDependencies) {
           React.createElement('div', {
             style: {
               width: 26, height: 26, borderRadius: 8,
-              background: `rgba(255, 92, 31, 0.12)`,
+              background: 'rgba(255, 92, 31, 0.12)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             },
           },
@@ -234,9 +200,7 @@ export function createExerciseLog(Shared: SharedDependencies) {
         ),
         !empty && React.createElement('div', {
           style: {
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: 4,
+            display: 'flex', alignItems: 'baseline', gap: 4,
             fontFamily: 'var(--knf-font-mono)',
           },
         },
@@ -250,43 +214,53 @@ export function createExerciseLog(Shared: SharedDependencies) {
         ),
       ),
 
-      empty && !formOpen
+      empty
         ? React.createElement(EmptyState, {
             icon: 'Flame',
             title: 'No workouts logged',
-            description: 'Add exercise to subtract burned calories from your daily total.',
-            action: { label: 'Add exercise', iconName: 'Plus', onClick: () => setFormOpen(true) },
+            description: 'Pick an exercise from the catalog to log strength sets or cardio blocks.',
+            action: { label: 'Log exercise', iconName: 'Plus', onClick: onAdd },
           })
         : React.createElement(React.Fragment, null,
-            !empty && React.createElement('div', {
-              style: { display: 'flex', flexDirection: 'column' },
-            },
+            React.createElement('div', { style: { display: 'flex', flexDirection: 'column' } },
               ...exercise.entries.map(entry =>
                 React.createElement(ExerciseRow, {
                   key: entry.id,
                   entry,
-                  onRemove: () => onRemoveExercise(entry.id),
+                  onEdit: () => onEdit(entry),
+                  onRemove: () => onRemove(entry.id),
+                  onOpenHistory: onOpenHistory ? () => onOpenHistory(entry) : undefined,
                 }),
               ),
             ),
-            formOpen
-              ? React.createElement(InlineAddForm, {
-                  onAdd: (n, d, c) => { onAddExercise(n, d, c); setFormOpen(false); },
-                  onCancel: () => setFormOpen(false),
-                })
-              : React.createElement(Button, {
-                  variant: 'ghost', size: 'sm',
-                  className: 'w-full mt-2',
-                  style: {
-                    color: 'var(--knf-hero-ink)',
-                    fontWeight: 500,
-                    justifyContent: 'flex-start',
-                  },
-                  onClick: () => setFormOpen(true),
+            React.createElement('div', {
+              style: { display: 'flex', gap: 6, marginTop: 10 },
+            },
+              React.createElement(Button, {
+                variant: 'ghost', size: 'sm',
+                className: 'flex-1',
+                style: {
+                  color: 'var(--knf-hero-ink)',
+                  fontWeight: 500,
+                  justifyContent: 'center',
                 },
-                  React.createElement(Plus, { className: 'h-4 w-4 mr-1.5' }),
-                  'Add exercise',
-                ),
+                onClick: onAdd,
+              },
+                React.createElement(Plus, { className: 'h-4 w-4 mr-1.5' }),
+                'Log exercise',
+              ),
+              onOpenTemplates && React.createElement(Button, {
+                variant: 'ghost', size: 'sm',
+                style: {
+                  color: 'var(--knf-muted)',
+                  justifyContent: 'center',
+                },
+                onClick: onOpenTemplates,
+              },
+                React.createElement(ListPlus, { className: 'h-4 w-4 mr-1.5' }),
+                'Templates',
+              ),
+            ),
           ),
     );
   };

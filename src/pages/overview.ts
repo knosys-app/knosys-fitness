@@ -1601,7 +1601,7 @@ function exerciseCard(
                       fontFamily: 'var(--knf-font-mono)',
                     },
                   },
-                  `${e.duration_min}m`,
+                  `${e.duration_min ?? 0}m`,
                 ),
               ),
               React.createElement(
@@ -1615,7 +1615,7 @@ function exerciseCard(
                     fontVariantNumeric: 'tabular-nums',
                   },
                 },
-                `${e.calories_burned}`,
+                `${e.calories_burned ?? 0}`,
               ),
             ),
           ),

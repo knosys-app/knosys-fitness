@@ -5,7 +5,9 @@ import type {
   WellnessGoals,
 } from '../types';
 import { getStorage, getApi } from '../hooks/use-fitness-store';
+import { refreshCatalog } from '../api/exercise-catalog';
 import { SIG_PALETTE } from '../theme';
+import type { CatalogMeta } from '../store/storage';
 import {
   createSignatureCard,
   createPageHeader,
@@ -224,11 +226,16 @@ export function createSettingsPanel(Shared: SharedDependencies) {
     const [saved, setSaved] = React.useState(false);
     const [resetOpen, setResetOpen] = React.useState(false);
     const [resetting, setResetting] = React.useState(false);
+    const [catalogMeta, setCatalogMeta] = React.useState<CatalogMeta | null>(null);
+    const [catalogBusy, setCatalogBusy] = React.useState(false);
+    const [rebuildBusy, setRebuildBusy] = React.useState(false);
+    const [rebuildCount, setRebuildCount] = React.useState<number | null>(null);
 
     React.useEffect(() => {
       const s = getStorage();
       s.getGoals().then(setGoals);
       s.getProfile().then(setProfile);
+      s.getCatalogMeta().then(setCatalogMeta);
       // Wellness goals folded into `goals` key; we probe for the extended shape.
       s.getGoals().then((g: any) => {
         if (
@@ -277,6 +284,33 @@ export function createSettingsPanel(Shared: SharedDependencies) {
         );
       } finally {
         setResetting(false);
+      }
+    };
+
+    const handleRefreshCatalog = async () => {
+      setCatalogBusy(true);
+      try {
+        await refreshCatalog(getStorage());
+        const meta = await getStorage().getCatalogMeta();
+        setCatalogMeta(meta);
+        getApi().ui.showToast('Catalog refreshed', 'success');
+      } catch (err: any) {
+        getApi().ui.showToast(`Refresh failed: ${err?.message ?? 'unknown'}`, 'error');
+      } finally {
+        setCatalogBusy(false);
+      }
+    };
+
+    const handleRebuildIndex = async () => {
+      setRebuildBusy(true);
+      try {
+        const count = await getStorage().rebuildExerciseHistoryIndex();
+        setRebuildCount(count);
+        getApi().ui.showToast(`History index rebuilt (${count} entries)`, 'success');
+      } catch (err: any) {
+        getApi().ui.showToast(`Rebuild failed: ${err?.message ?? 'unknown'}`, 'error');
+      } finally {
+        setRebuildBusy(false);
       }
     };
 
@@ -769,6 +803,118 @@ export function createSettingsPanel(Shared: SharedDependencies) {
               },
               'Opened first when logging food.',
             ),
+          ),
+        ),
+      ),
+
+      // ---------------- Exercise catalog ----------------
+      React.createElement(
+        SectionCard,
+        {
+          SignatureCard,
+          React,
+          title: 'Exercise catalog',
+          subtitle: 'Strength + cardio data sources and tools.',
+        },
+        React.createElement(
+          'div',
+          { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+          React.createElement(
+            'div',
+            {
+              style: {
+                fontSize: 12,
+                color: 'var(--knf-muted)',
+                fontFamily: 'var(--knf-font-mono)',
+              },
+            },
+            catalogMeta
+              ? `Catalog cached: ${catalogMeta.count} exercises \u00B7 fetched ${new Date(catalogMeta.fetched_at).toLocaleDateString()}`
+              : 'Catalog has not been loaded yet. Open the Workouts tab to load it.',
+          ),
+          React.createElement(
+            'div',
+            { style: { display: 'flex', flexWrap: 'wrap', gap: 8 } },
+            React.createElement(
+              Button,
+              {
+                variant: 'outline',
+                size: 'sm',
+                onClick: handleRefreshCatalog,
+                disabled: catalogBusy,
+              },
+              catalogBusy ? 'Refreshing\u2026' : 'Refresh catalog',
+            ),
+            React.createElement(
+              Button,
+              {
+                variant: 'outline',
+                size: 'sm',
+                onClick: handleRebuildIndex,
+                disabled: rebuildBusy,
+              },
+              rebuildBusy ? 'Rebuilding\u2026' : 'Rebuild history index',
+            ),
+          ),
+          rebuildCount != null &&
+            React.createElement(
+              'div',
+              {
+                style: {
+                  fontSize: 11,
+                  color: 'var(--knf-muted)',
+                  fontFamily: 'var(--knf-font-mono)',
+                },
+              },
+              `Last rebuild: ${rebuildCount} entries indexed.`,
+            ),
+          React.createElement(
+            'div',
+            {
+              style: {
+                marginTop: 4,
+                paddingTop: 10,
+                borderTop: '1px solid var(--knf-hairline)',
+                fontSize: 11,
+                color: 'var(--knf-muted)',
+                fontFamily: 'var(--knf-font-body)',
+                lineHeight: 1.55,
+              },
+            },
+            'Exercise data sourced from ',
+            React.createElement(
+              'a',
+              {
+                href: 'https://github.com/yuhonas/free-exercise-db',
+                target: '_blank',
+                rel: 'noreferrer',
+                style: { color: 'var(--knf-ink-2)', textDecoration: 'underline' },
+              },
+              'yuhonas/free-exercise-db',
+            ),
+            ' (Unlicense) and ',
+            React.createElement(
+              'a',
+              {
+                href: 'https://wger.de',
+                target: '_blank',
+                rel: 'noreferrer',
+                style: { color: 'var(--knf-ink-2)', textDecoration: 'underline' },
+              },
+              'wger.de',
+            ),
+            ' (CC-BY-SA 4.0). Optional fallback via ',
+            React.createElement(
+              'a',
+              {
+                href: 'https://api-ninjas.com',
+                target: '_blank',
+                rel: 'noreferrer',
+                style: { color: 'var(--knf-ink-2)', textDecoration: 'underline' },
+              },
+              'API-Ninjas',
+            ),
+            '.',
           ),
         ),
       ),

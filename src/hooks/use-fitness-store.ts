@@ -1,8 +1,11 @@
-import type { SharedDependencies, PluginAPI, MealType, MealLog, Goals, FoodEntry, NormalizedFood, ExerciseEntry, ExerciseLog, WaterEntry, WeightEntry, FitnessSettings, UserProfile, WellnessEntry, WellnessGoals } from '../types';
+import type { SharedDependencies, PluginAPI, MealType, MealLog, Goals, FoodEntry, NormalizedFood, Exercise, ExerciseEntry, ExerciseLog, WaterEntry, WeightEntry, FitnessSettings, UserProfile, WellnessEntry, WellnessGoals } from '../types';
 import { createStorage, type FitnessStorage } from '../store/storage';
 import { toDateKey, uuid } from '../utils/date-helpers';
 import { searchOpenFoodFacts } from '../api/open-food-facts';
 import { searchUSDA } from '../api/usda';
+import { loadCatalog, searchLocalCatalog } from '../api/exercise-catalog';
+import { searchWger } from '../api/wger';
+import { searchApiNinjas } from '../api/api-ninjas';
 import { recipeToFood } from '../utils/recipe-to-food';
 
 /** Default wellness goals — can be overridden in Settings by TL later. */
@@ -111,7 +114,43 @@ export function createUseDiary(Shared: SharedDependencies) {
     const addExercise = useCallback(async (name: string, duration_min: number, calories_burned: number) => {
       const s = getStorage();
       const log = await s.getExercise(dateKey);
-      log.entries.push({ id: uuid(), name, duration_min, calories_burned });
+      log.entries.push({
+        id: uuid(),
+        schema_version: 2,
+        name,
+        kind: 'cardio',
+        duration_min,
+        calories_burned,
+        logged_at: new Date().toISOString(),
+      });
+      await s.setExercise(dateKey, log);
+      await load();
+    }, [dateKey, load]);
+
+    const addExerciseEntry = useCallback(async (entry: Omit<ExerciseEntry, 'id' | 'schema_version'>) => {
+      const s = getStorage();
+      const log = await s.getExercise(dateKey);
+      const full: ExerciseEntry = {
+        id: uuid(),
+        schema_version: 2,
+        logged_at: entry.logged_at ?? new Date().toISOString(),
+        ...entry,
+      };
+      log.entries.push(full);
+      await s.setExercise(dateKey, log);
+      if (full.exercise_id) {
+        await s.appendExerciseHistory(full.exercise_id, dateKey, full.id);
+      }
+      await load();
+      return full;
+    }, [dateKey, load]);
+
+    const updateExerciseEntry = useCallback(async (entryId: string, patch: Partial<ExerciseEntry>) => {
+      const s = getStorage();
+      const log = await s.getExercise(dateKey);
+      const idx = log.entries.findIndex(e => e.id === entryId);
+      if (idx < 0) return;
+      log.entries[idx] = { ...log.entries[idx], ...patch };
       await s.setExercise(dateKey, log);
       await load();
     }, [dateKey, load]);
@@ -119,8 +158,12 @@ export function createUseDiary(Shared: SharedDependencies) {
     const removeExercise = useCallback(async (entryId: string) => {
       const s = getStorage();
       const log = await s.getExercise(dateKey);
+      const entry = log.entries.find(e => e.id === entryId);
       log.entries = log.entries.filter(e => e.id !== entryId);
       await s.setExercise(dateKey, log);
+      if (entry?.exercise_id) {
+        await s.removeExerciseHistory(entry.exercise_id, entryId);
+      }
       await load();
     }, [dateKey, load]);
 
@@ -128,7 +171,7 @@ export function createUseDiary(Shared: SharedDependencies) {
       meals, goals, water, exercise, loading,
       addFoodEntry, removeFoodEntry, updateFoodEntry,
       addWater, setWaterAmount,
-      addExercise, removeExercise,
+      addExercise, addExerciseEntry, updateExerciseEntry, removeExercise,
     };
   };
 }
@@ -294,5 +337,143 @@ export function createUseWellnessRange(Shared: SharedDependencies) {
     useEffect(() => { load(); }, [load]);
 
     return { entries, loading, reload: load };
+  };
+}
+
+export type ExerciseSourceTab = 'all' | 'yuhonas' | 'custom' | 'wger' | 'api-ninjas';
+
+/**
+ * Unified exercise search hook. Fans out across:
+ *   - custom exercises (local storage)
+ *   - yuhonas catalog (lazy-loaded JSON, in-memory index)
+ *   - wger live API (on non-empty query only)
+ *   - api-ninjas (on non-empty query, requires manifest key)
+ *
+ * Dedups across sources by normalized name + equipment, preferring:
+ *   custom > yuhonas > wger > api-ninjas.
+ */
+export function createUseExerciseSearch(Shared: SharedDependencies) {
+  const { useState, useCallback, useRef, useEffect } = Shared;
+
+  return function useExerciseSearch() {
+    const [query, setQueryState] = useState('');
+    const [results, setResults] = useState<Exercise[]>([]);
+    const [catalogReady, setCatalogReady] = useState(false);
+    const [catalogError, setCatalogError] = useState<string | null>(null);
+    const [recents, setRecents] = useState<Exercise[]>([]);
+    const [favorites, setFavorites] = useState<string[]>([]);
+    const [frequency, setFrequency] = useState<Record<string, number>>({});
+    const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [source, setSource] = useState<ExerciseSourceTab>('all');
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const searchIdRef = useRef(0);
+
+    useEffect(() => {
+      const s = getStorage();
+      s.getRecentExercises().then(setRecents);
+      s.getExerciseFavorites().then(setFavorites);
+      s.getExerciseFrequency().then(setFrequency);
+      s.getCustomExercises().then(setCustomExercises);
+      loadCatalog(s)
+        .then(() => setCatalogReady(true))
+        .catch(err => setCatalogError(err?.message ?? 'Failed to load exercise catalog'));
+    }, []);
+
+    const search = useCallback(async (q: string) => {
+      const trimmed = q.trim();
+      const thisSearchId = ++searchIdRef.current;
+      setSearching(true);
+      const all: Exercise[] = [];
+
+      if (source === 'all' || source === 'custom') {
+        const lower = trimmed.toLowerCase();
+        const customs = trimmed
+          ? customExercises.filter(ex =>
+              ex.name.toLowerCase().includes(lower) ||
+              ex.primaryMuscles.some(m => m.toLowerCase().includes(lower)) ||
+              (ex.equipment ?? '').toLowerCase().includes(lower)
+            )
+          : customExercises.slice(0, 40);
+        all.push(...customs);
+      }
+
+      if ((source === 'all' || source === 'yuhonas') && catalogReady) {
+        all.push(...searchLocalCatalog(trimmed, 40));
+      }
+
+      if (trimmed) {
+        const remoteTasks: Array<Promise<Exercise[]>> = [];
+        if (source === 'all' || source === 'wger') {
+          remoteTasks.push(
+            searchWger(trimmed).catch(err => { console.warn('wger search failed:', err?.message); return []; })
+          );
+        }
+        if (source === 'all' || source === 'api-ninjas') {
+          remoteTasks.push((async () => {
+            try {
+              const apiKey = await getApi().core.getApiKey('api-ninjas');
+              if (!apiKey) return [];
+              return await searchApiNinjas(trimmed, apiKey);
+            } catch (err: any) {
+              console.warn('api-ninjas search failed:', err?.message); return [];
+            }
+          })());
+        }
+        if (remoteTasks.length) {
+          const settled = await Promise.allSettled(remoteTasks);
+          for (const r of settled) if (r.status === 'fulfilled') all.push(...r.value);
+        }
+      }
+
+      if (thisSearchId !== searchIdRef.current) return;
+
+      const priority: Record<string, number> = { custom: 4, yuhonas: 3, wger: 2, 'api-ninjas': 1 };
+      const seen = new Map<string, Exercise>();
+      for (const ex of all) {
+        const key = `${ex.name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()}|${(ex.equipment ?? '').toLowerCase()}`;
+        const existing = seen.get(key);
+        if (!existing || (priority[ex.source] ?? 0) > (priority[existing.source] ?? 0)) {
+          seen.set(key, ex);
+        }
+      }
+      setResults(Array.from(seen.values()));
+      setSearching(false);
+    }, [source, catalogReady, customExercises]);
+
+    const setQuery = useCallback((q: string) => {
+      setQueryState(q);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => search(q), 250);
+    }, [search]);
+
+    useEffect(() => { search(query); }, [source, catalogReady, customExercises.length]);
+
+    const toggleFavorite = useCallback(async (exerciseId: string) => {
+      await getStorage().toggleExerciseFavorite(exerciseId);
+      const next = await getStorage().getExerciseFavorites();
+      setFavorites(next);
+    }, []);
+
+    const trackUsage = useCallback(async (exercise: Exercise) => {
+      await getStorage().trackExerciseUsage(exercise);
+      const [r, f] = await Promise.all([
+        getStorage().getRecentExercises(),
+        getStorage().getExerciseFrequency(),
+      ]);
+      setRecents(r);
+      setFrequency(f);
+    }, []);
+
+    const refreshCustomExercises = useCallback(async () => {
+      const list = await getStorage().getCustomExercises();
+      setCustomExercises(list);
+    }, []);
+
+    return {
+      query, setQuery, results, searching, catalogReady, catalogError,
+      source, setSource, recents, favorites, frequency, customExercises,
+      toggleFavorite, trackUsage, refreshCustomExercises,
+    };
   };
 }

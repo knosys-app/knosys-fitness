@@ -5,16 +5,18 @@ import { createOverviewPage } from '../pages/overview';
 import { createTodayPage } from '../pages/today';
 import { createTrendsPage } from '../pages/trends';
 import { createLibraryPage } from '../pages/library';
+import { createWorkoutsPage } from '../pages/workouts';
 
-type TabId = 'overview' | 'today' | 'trends' | 'library';
+type TabId = 'overview' | 'today' | 'trends' | 'library' | 'workouts';
 
-const TAB_IDS: TabId[] = ['overview', 'today', 'trends', 'library'];
+const TAB_IDS: TabId[] = ['overview', 'today', 'trends', 'library', 'workouts'];
 
 const TAB_LABELS: Record<TabId, { label: string; icon: string }> = {
   overview: { label: 'Overview', icon: 'LayoutDashboard' },
   today: { label: 'Today', icon: 'Utensils' },
   trends: { label: 'Trends', icon: 'TrendingUp' },
   library: { label: 'Library', icon: 'BookOpen' },
+  workouts: { label: 'Workouts', icon: 'Dumbbell' },
 };
 
 const MONTH_ABBR = [
@@ -69,6 +71,7 @@ export function createFitnessPage(Shared: SharedDependencies) {
   const TodayPage = createTodayPage(Shared);
   const TrendsPage = createTrendsPage(Shared);
   const LibraryPage = createLibraryPage(Shared);
+  const WorkoutsPage = createWorkoutsPage(Shared);
 
   return function FitnessPage() {
     const [setupComplete, setSetupComplete] = React.useState<boolean | null>(
@@ -203,6 +206,8 @@ export function createFitnessPage(Shared: SharedDependencies) {
           return React.createElement(TrendsPage, null);
         case 'library':
           return React.createElement(LibraryPage, null);
+        case 'workouts':
+          return React.createElement(WorkoutsPage, null);
         default:
           return React.createElement(OverviewPage, { onQuickLog: quickLog });
       }

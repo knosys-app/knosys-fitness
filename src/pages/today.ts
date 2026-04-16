@@ -1,4 +1,4 @@
-import type { SharedDependencies, MealType, MealTemplate, NormalizedFood } from '../types';
+import type { SharedDependencies, MealType, MealTemplate, NormalizedFood, Exercise, ExerciseEntry, ExerciseSet } from '../types';
 import { MEAL_TYPES, MEAL_LABELS } from '../types';
 import { dayTotals, formatCal } from '../utils/nutrients';
 import { toDateKey, uuid } from '../utils/date-helpers';
@@ -10,6 +10,8 @@ import { createFoodSearchDialog } from '../components/food-search';
 import { createFoodEntryForm } from '../components/food-entry-form';
 import { createWaterTracker } from '../components/water-tracker';
 import { createExerciseLog } from '../components/exercise-log';
+import { createExerciseSearchDialog } from '../components/exercise-search';
+import { createExerciseLogger } from '../components/exercise-logger';
 import { createWellnessCard } from '../components/wellness-card';
 import {
   createSignatureCard,
@@ -46,6 +48,8 @@ export function createTodayPage(Shared: SharedDependencies) {
   const FoodEntryForm = createFoodEntryForm(Shared);
   const WaterTracker = createWaterTracker(Shared);
   const ExerciseLog = createExerciseLog(Shared);
+  const ExerciseSearchDialog = createExerciseSearchDialog(Shared);
+  const ExerciseLogger = createExerciseLogger(Shared);
   const WellnessCard = createWellnessCard(Shared);
 
   const SignatureCard = createSignatureCard(Shared);
@@ -224,11 +228,67 @@ export function createTodayPage(Shared: SharedDependencies) {
   function ExerciseSection(props: {
     dateKey: string;
     diary: ReturnType<ReturnType<typeof createUseDiary>>;
+    onOpenTemplates?: () => void;
   }) {
-    const { dateKey, diary } = props;
+    const { dateKey, diary, onOpenTemplates } = props;
 
     const [weekData, setWeekData] = React.useState<{ label: string; cal: number }[]>([]);
     const [weekTotal, setWeekTotal] = React.useState(0);
+
+    // Modal state for catalog-driven logging flow.
+    const [searchOpen, setSearchOpen] = React.useState(false);
+    const [loggerOpen, setLoggerOpen] = React.useState(false);
+    const [loggerExercise, setLoggerExercise] = React.useState<Exercise | undefined>();
+    const [loggerEntry, setLoggerEntry] = React.useState<ExerciseEntry | undefined>();
+
+    const openLoggerForExercise = React.useCallback((exercise: Exercise) => {
+      setLoggerExercise(exercise);
+      setLoggerEntry(undefined);
+      setLoggerOpen(true);
+    }, []);
+
+    const openLoggerForEntry = React.useCallback((entry: ExerciseEntry) => {
+      setLoggerEntry(entry);
+      setLoggerExercise(undefined);
+      setLoggerOpen(true);
+    }, []);
+
+    const handleLoggerSubmit = React.useCallback(
+      async (patch: Partial<ExerciseEntry>, entryId?: string) => {
+        if (entryId) {
+          await diary.updateExerciseEntry(entryId, patch);
+        } else {
+          const kind = (patch.kind ?? 'cardio') as 'strength' | 'cardio';
+          await diary.addExerciseEntry({
+            name: patch.name ?? '',
+            kind,
+            exercise_id: patch.exercise_id,
+            primaryMuscles: patch.primaryMuscles,
+            sets: patch.sets,
+            duration_min: patch.duration_min,
+            distance: patch.distance,
+            distance_unit: patch.distance_unit,
+            calories_burned: patch.calories_burned,
+            notes: patch.notes,
+          });
+        }
+      },
+      [diary],
+    );
+
+    const fetchPreviousSets = React.useCallback(async (exerciseId: string): Promise<ExerciseSet[] | null> => {
+      const s = getStorage();
+      const history = await s.getExerciseHistory(exerciseId);
+      if (!history.length) return null;
+      const sorted = [...history].sort((a, b) => (a.date < b.date ? 1 : -1));
+      for (const h of sorted) {
+        if (h.date === dateKey) continue;
+        const log = await s.getExercise(h.date);
+        const entry = log.entries.find(e => e.id === h.entry_id);
+        if (entry?.sets?.length) return entry.sets;
+      }
+      return null;
+    }, [dateKey]);
 
     React.useEffect(() => {
       (async () => {
@@ -238,7 +298,7 @@ export function createTodayPage(Shared: SharedDependencies) {
         for (let i = 6; i >= 0; i--) {
           const d = dateFns.subDays(fromKey(dateKey), i);
           const log = await s.getExercise(toDateKey(d));
-          const cal = log.entries.reduce((sum, e) => sum + e.calories_burned, 0);
+          const cal = log.entries.reduce((sum, e) => sum + (e.calories_burned ?? 0), 0);
           total += cal;
           week.push({ label: dateFns.format(d, 'EEE'), cal });
         }
@@ -247,8 +307,8 @@ export function createTodayPage(Shared: SharedDependencies) {
       })();
     }, [diary.exercise.entries.length, dateKey]);
 
-    const totalCal = diary.exercise.entries.reduce((sum, e) => sum + e.calories_burned, 0);
-    const totalMin = diary.exercise.entries.reduce((sum, e) => sum + e.duration_min, 0);
+    const totalCal = diary.exercise.entries.reduce((sum, e) => sum + (e.calories_burned ?? 0), 0);
+    const totalMin = diary.exercise.entries.reduce((sum, e) => sum + (e.duration_min ?? 0), 0);
     const avgWeekCal = weekData.length > 0 ? Math.round(weekTotal / 7) : 0;
 
     return React.createElement('div', {
@@ -354,8 +414,10 @@ export function createTodayPage(Shared: SharedDependencies) {
         React.createElement(AnimatedBlock, { delay: 80 },
           React.createElement(ExerciseLog, {
             exercise: diary.exercise,
-            onAddExercise: diary.addExercise,
-            onRemoveExercise: diary.removeExercise,
+            onAdd: () => setSearchOpen(true),
+            onEdit: openLoggerForEntry,
+            onRemove: diary.removeExercise,
+            onOpenTemplates,
           }),
         ),
         React.createElement(AnimatedBlock, { delay: 160 },
@@ -431,6 +493,24 @@ export function createTodayPage(Shared: SharedDependencies) {
           ),
         ),
       ),
+
+      // Catalog search dialog
+      React.createElement(ExerciseSearchDialog, {
+        open: searchOpen,
+        onOpenChange: setSearchOpen,
+        onSelect: openLoggerForExercise,
+      }),
+
+      // Adaptive strength/cardio logger dialog
+      React.createElement(ExerciseLogger, {
+        open: loggerOpen,
+        onOpenChange: setLoggerOpen,
+        mode: loggerEntry ? 'edit' : 'create',
+        exercise: loggerExercise,
+        entry: loggerEntry,
+        onSubmit: handleLoggerSubmit,
+        onPreviousSetsRequest: fetchPreviousSets,
+      }),
     );
   }
 

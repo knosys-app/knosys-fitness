@@ -2,6 +2,8 @@ import type {
   PluginStorageAPI,
   MealType,
   MealLog,
+  Exercise,
+  ExerciseEntry,
   ExerciseLog,
   WeightEntry,
   WaterEntry,
@@ -16,8 +18,19 @@ import type {
   FitnessSettings,
   FoodEntry,
   WellnessEntry,
+  WorkoutTemplate,
   MEAL_TYPES,
 } from '../types';
+
+/** Lazy-migrate a legacy v1 exercise entry to v2 shape on read. */
+function migrateExerciseEntry(entry: ExerciseEntry): ExerciseEntry {
+  if (entry.schema_version === 2) return entry;
+  return {
+    ...entry,
+    schema_version: 2,
+    kind: entry.kind ?? 'cardio',
+  };
+}
 
 // ============================================================
 // Key Patterns
@@ -38,7 +51,23 @@ const keys = {
   frequentFoods: () => 'frequent_foods',
   recentFoods: () => 'recent_foods',
   monthlySummary: (yearMonth: string) => `summary:${yearMonth}`,
+  // Exercise catalog & library
+  catalogYuhonas: () => 'catalog:yuhonas:v1',
+  catalogYuhonasMeta: () => 'catalog:yuhonas:meta',
+  customExercises: () => 'exercises:custom',
+  workoutTemplate: (id: string) => `workout-template:${id}`,
+  exerciseHistory: (exerciseId: string) => `exercise-history:${exerciseId}`,
+  exerciseFavorites: () => 'exercises:favorites',
+  exerciseRecents: () => 'exercises:recents',
+  exerciseFrequency: () => 'exercises:frequency',
 };
+
+export interface CatalogMeta {
+  etag?: string;
+  fetched_at: string;
+  version: string;
+  count: number;
+}
 
 // ============================================================
 // Storage Wrapper
@@ -70,7 +99,8 @@ export function createStorage(storage: PluginStorageAPI) {
     // ---- Exercise ----
     async getExercise(date: string): Promise<ExerciseLog> {
       const data = await storage.get<ExerciseLog>(keys.exercise(date));
-      return data ?? { entries: [] };
+      if (!data) return { entries: [] };
+      return { entries: data.entries.map(migrateExerciseEntry) };
     },
 
     async setExercise(date: string, log: ExerciseLog): Promise<void> {
@@ -308,7 +338,7 @@ export function createStorage(storage: PluginStorageAPI) {
         }
       }
 
-      const exercise_calories = exercise.entries.reduce((sum, e) => sum + e.calories_burned, 0);
+      const exercise_calories = exercise.entries.reduce((sum, e) => sum + (e.calories_burned ?? 0), 0);
 
       return {
         calories: Math.round(calories),
@@ -319,6 +349,159 @@ export function createStorage(storage: PluginStorageAPI) {
         exercise_calories,
         weight_kg: weight?.weight_kg,
       };
+    },
+
+    // ---- Exercise Catalog (yuhonas) ----
+    async getCatalog(): Promise<Exercise[] | null> {
+      return storage.get<Exercise[]>(keys.catalogYuhonas());
+    },
+
+    async setCatalog(exercises: Exercise[], meta: CatalogMeta): Promise<void> {
+      await storage.set(keys.catalogYuhonas(), exercises);
+      await storage.set(keys.catalogYuhonasMeta(), meta);
+    },
+
+    async getCatalogMeta(): Promise<CatalogMeta | null> {
+      return storage.get<CatalogMeta>(keys.catalogYuhonasMeta());
+    },
+
+    async clearCatalog(): Promise<void> {
+      await storage.delete(keys.catalogYuhonas());
+      await storage.delete(keys.catalogYuhonasMeta());
+    },
+
+    // ---- Custom Exercises ----
+    async getCustomExercises(): Promise<Exercise[]> {
+      const data = await storage.get<Exercise[]>(keys.customExercises());
+      return data ?? [];
+    },
+
+    async addCustomExercise(exercise: Exercise): Promise<void> {
+      const list = await this.getCustomExercises();
+      const idx = list.findIndex(e => e.id === exercise.id);
+      if (idx >= 0) list[idx] = exercise; else list.push(exercise);
+      await storage.set(keys.customExercises(), list);
+    },
+
+    async deleteCustomExercise(id: string): Promise<void> {
+      const list = await this.getCustomExercises();
+      await storage.set(keys.customExercises(), list.filter(e => e.id !== id));
+    },
+
+    // ---- Workout Templates (per-entity, mirrors MealTemplate pattern) ----
+    async getWorkoutTemplate(id: string): Promise<WorkoutTemplate | null> {
+      return storage.get<WorkoutTemplate>(keys.workoutTemplate(id));
+    },
+
+    async setWorkoutTemplate(template: WorkoutTemplate): Promise<void> {
+      await storage.set(keys.workoutTemplate(template.id), template);
+    },
+
+    async deleteWorkoutTemplate(id: string): Promise<void> {
+      await storage.delete(keys.workoutTemplate(id));
+    },
+
+    async getAllWorkoutTemplates(): Promise<WorkoutTemplate[]> {
+      const allKeys = await storage.keys();
+      const templateKeys = allKeys.filter(k => k.startsWith('workout-template:'));
+      const results: WorkoutTemplate[] = [];
+      for (const key of templateKeys) {
+        const template = await storage.get<WorkoutTemplate>(key);
+        if (template) results.push(template);
+      }
+      return results;
+    },
+
+    // ---- Per-exercise History Index ----
+    async appendExerciseHistory(exerciseId: string, date: string, entryId: string): Promise<void> {
+      const list = (await storage.get<Array<{ date: string; entry_id: string }>>(keys.exerciseHistory(exerciseId))) ?? [];
+      list.push({ date, entry_id: entryId });
+      await storage.set(keys.exerciseHistory(exerciseId), list);
+    },
+
+    async removeExerciseHistory(exerciseId: string, entryId: string): Promise<void> {
+      const list = (await storage.get<Array<{ date: string; entry_id: string }>>(keys.exerciseHistory(exerciseId))) ?? [];
+      const next = list.filter(e => e.entry_id !== entryId);
+      if (next.length === 0) {
+        await storage.delete(keys.exerciseHistory(exerciseId));
+      } else {
+        await storage.set(keys.exerciseHistory(exerciseId), next);
+      }
+    },
+
+    async getExerciseHistory(exerciseId: string): Promise<Array<{ date: string; entry_id: string }>> {
+      const data = await storage.get<Array<{ date: string; entry_id: string }>>(keys.exerciseHistory(exerciseId));
+      return data ?? [];
+    },
+
+    /** Rebuild the per-exercise history index from scratch by walking stored exercise logs.
+     *  Bounded to `daysBack` trailing days (default 365). */
+    async rebuildExerciseHistoryIndex(daysBack = 365): Promise<number> {
+      const allKeys = await storage.keys();
+      const historyKeys = allKeys.filter(k => k.startsWith('exercise-history:'));
+      await Promise.all(historyKeys.map(k => storage.delete(k)));
+
+      const fresh = new Map<string, Array<{ date: string; entry_id: string }>>();
+      const today = new Date();
+      for (let i = 0; i < daysBack; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const dateKey = d.toISOString().slice(0, 10);
+        const log = await storage.get<ExerciseLog>(keys.exercise(dateKey));
+        if (!log?.entries?.length) continue;
+        for (const entry of log.entries) {
+          if (!entry.exercise_id) continue;
+          const arr = fresh.get(entry.exercise_id) ?? [];
+          arr.push({ date: dateKey, entry_id: entry.id });
+          fresh.set(entry.exercise_id, arr);
+        }
+      }
+      let total = 0;
+      for (const [exerciseId, entries] of fresh) {
+        await storage.set(keys.exerciseHistory(exerciseId), entries);
+        total += entries.length;
+      }
+      return total;
+    },
+
+    // ---- Favorites / Recents / Frequency ----
+    async getExerciseFavorites(): Promise<string[]> {
+      const data = await storage.get<string[]>(keys.exerciseFavorites());
+      return data ?? [];
+    },
+
+    async toggleExerciseFavorite(exerciseId: string): Promise<boolean> {
+      const list = await this.getExerciseFavorites();
+      const idx = list.indexOf(exerciseId);
+      if (idx >= 0) {
+        list.splice(idx, 1);
+        await storage.set(keys.exerciseFavorites(), list);
+        return false;
+      }
+      list.push(exerciseId);
+      await storage.set(keys.exerciseFavorites(), list);
+      return true;
+    },
+
+    async getRecentExercises(): Promise<Exercise[]> {
+      const data = await storage.get<Exercise[]>(keys.exerciseRecents());
+      return data ?? [];
+    },
+
+    async trackExerciseUsage(exercise: Exercise): Promise<void> {
+      const recents = await this.getRecentExercises();
+      const filtered = recents.filter(e => e.id !== exercise.id);
+      filtered.unshift(exercise);
+      await storage.set(keys.exerciseRecents(), filtered.slice(0, 20));
+
+      const freq = (await storage.get<Record<string, number>>(keys.exerciseFrequency())) ?? {};
+      freq[exercise.id] = (freq[exercise.id] ?? 0) + 1;
+      await storage.set(keys.exerciseFrequency(), freq);
+    },
+
+    async getExerciseFrequency(): Promise<Record<string, number>> {
+      const data = await storage.get<Record<string, number>>(keys.exerciseFrequency());
+      return data ?? {};
     },
   };
 }
