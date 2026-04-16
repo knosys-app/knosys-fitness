@@ -185,17 +185,80 @@ export interface MealLog {
   entries: FoodEntry[];
 }
 
-/** Exercise entry */
+/** Source of an exercise in the unified catalog */
+export type ExerciseSource = 'yuhonas' | 'wger' | 'api-ninjas' | 'custom';
+
+/** Canonical exercise (catalog entry) */
+export interface Exercise {
+  id: string;                    // stable: `${source}:${sourceId}`
+  source: ExerciseSource;
+  name: string;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  equipment?: string;
+  category?: 'strength' | 'cardio' | 'stretching' | 'plyometrics' | 'powerlifting' | 'olympic' | 'other';
+  force?: 'push' | 'pull' | 'static';
+  mechanic?: 'compound' | 'isolation';
+  level?: 'beginner' | 'intermediate' | 'expert';
+  instructions: string[];
+  images: string[];              // resolved absolute URLs
+}
+
+/** A single set within a strength exercise entry */
+export interface ExerciseSet {
+  reps: number;
+  weight?: number;
+  weight_unit?: 'kg' | 'lb';
+  rpe?: number;
+  completed?: boolean;
+}
+
+/** Exercise entry (one performed exercise on a given day) */
 export interface ExerciseEntry {
   id: string;
+  schema_version?: 2;            // absent => legacy v1
+  exercise_id?: string;          // catalog reference
   name: string;
-  duration_min: number;
-  calories_burned: number;
+  primaryMuscles?: string[];     // denormalized for history
+  kind: 'strength' | 'cardio';
+  sets?: ExerciseSet[];          // strength
+  duration_min?: number;         // cardio (and legacy)
+  distance?: number;
+  distance_unit?: 'km' | 'mi';
+  calories_burned?: number;
+  notes?: string;
+  logged_at?: string;            // ISO timestamp
 }
 
 /** Exercise log for a day */
 export interface ExerciseLog {
   entries: ExerciseEntry[];
+}
+
+/** Saved reusable workout routine */
+export interface WorkoutTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  exercises: Array<{
+    exercise_id: string;
+    name: string;                // denormalized
+    kind: 'strength' | 'cardio';
+    target_sets?: number;
+    target_reps?: number;
+    target_weight?: number;
+    target_duration_min?: number;
+    order: number;
+  }>;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Frequency record for an exercise (for recents/frequent surfacing) */
+export interface FrequentExercise {
+  exercise: Exercise;
+  count: number;
+  last_used: string;
 }
 
 /** Weight entry for a day */

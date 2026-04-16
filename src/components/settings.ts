@@ -1,5 +1,7 @@
 import type { SharedDependencies, Goals, UserProfile } from '../types';
+import type { CatalogMeta } from '../store/storage';
 import { getStorage } from '../hooks/use-fitness-store';
+import { refreshCatalog } from '../api/exercise-catalog';
 
 const ACTIVITY_LABELS: Record<string, string> = {
   sedentary: 'Sedentary (little/no exercise)',
@@ -48,12 +50,40 @@ export function createSettingsPanel(Shared: SharedDependencies) {
     const [goals, setGoals] = React.useState<Goals>({ calories: 2000, protein_g: 150, carbs_g: 250, fat_g: 65, water_ml: 2500 });
     const [profile, setProfile] = React.useState<UserProfile>({ unit_system: 'metric' });
     const [saved, setSaved] = React.useState(false);
+    const [catalogMeta, setCatalogMeta] = React.useState<CatalogMeta | null>(null);
+    const [catalogBusy, setCatalogBusy] = React.useState(false);
+    const [rebuildBusy, setRebuildBusy] = React.useState(false);
 
     React.useEffect(() => {
       const s = getStorage();
       s.getGoals().then(setGoals);
       s.getProfile().then(setProfile);
+      s.getCatalogMeta().then(setCatalogMeta);
     }, []);
+
+    const handleRefreshCatalog = async () => {
+      setCatalogBusy(true);
+      try {
+        await refreshCatalog(getStorage());
+        const meta = await getStorage().getCatalogMeta();
+        setCatalogMeta(meta);
+      } catch (err) {
+        console.warn('Catalog refresh failed:', err);
+      } finally {
+        setCatalogBusy(false);
+      }
+    };
+
+    const handleRebuildIndex = async () => {
+      setRebuildBusy(true);
+      try {
+        await getStorage().rebuildExerciseHistoryIndex();
+      } catch (err) {
+        console.warn('Rebuild index failed:', err);
+      } finally {
+        setRebuildBusy(false);
+      }
+    };
 
     const save = async () => {
       const s = getStorage();
@@ -184,6 +214,57 @@ export function createSettingsPanel(Shared: SharedDependencies) {
                   React.createElement(SelectItem, { key, value: key }, label),
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+
+      // Exercise Catalog & Attributions
+      React.createElement(Card, null,
+        React.createElement(CardHeader, { className: 'pb-2' },
+          React.createElement(CardTitle, { className: 'text-sm' }, 'Exercise Catalog'),
+        ),
+        React.createElement(CardContent, { className: 'space-y-3' },
+          React.createElement('div', { className: 'text-xs text-muted-foreground' },
+            catalogMeta
+              ? `Catalog cached: ${catalogMeta.count} exercises · fetched ${new Date(catalogMeta.fetched_at).toLocaleDateString()}`
+              : 'Catalog has not been loaded yet. Open the Browse exercises dialog to load it.',
+          ),
+          React.createElement('div', { className: 'flex flex-wrap gap-2' },
+            React.createElement(Button, {
+              variant: 'outline', size: 'sm',
+              onClick: handleRefreshCatalog,
+              disabled: catalogBusy,
+            }, catalogBusy ? 'Refreshing…' : 'Refresh catalog'),
+            React.createElement(Button, {
+              variant: 'outline', size: 'sm',
+              onClick: handleRebuildIndex,
+              disabled: rebuildBusy,
+            }, rebuildBusy ? 'Rebuilding…' : 'Rebuild history index'),
+          ),
+          React.createElement('div', {
+            className: 'text-[11px] text-muted-foreground leading-relaxed border-t pt-2 mt-1 space-y-1',
+          },
+            React.createElement('div', null,
+              'Exercise data sourced from ',
+              React.createElement('a', {
+                href: 'https://github.com/yuhonas/free-exercise-db',
+                target: '_blank', rel: 'noreferrer',
+                className: 'underline',
+              }, 'yuhonas/free-exercise-db'),
+              ' (Unlicense) and ',
+              React.createElement('a', {
+                href: 'https://wger.de',
+                target: '_blank', rel: 'noreferrer',
+                className: 'underline',
+              }, 'wger.de'),
+              ' (CC-BY-SA 4.0). Optional fallback via ',
+              React.createElement('a', {
+                href: 'https://api-ninjas.com',
+                target: '_blank', rel: 'noreferrer',
+                className: 'underline',
+              }, 'API-Ninjas'),
+              '.',
             ),
           ),
         ),

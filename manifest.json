@@ -1,7 +1,7 @@
 {
   "id": "knosys-fitness",
   "name": "Fitness",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Calorie and nutrition tracking — food logging, macros, weight, exercise, and more",
   "author": "knosys-app",
   "authorUrl": "https://github.com/knosys-app",
@@ -15,6 +15,13 @@
       "description": "For searching the USDA food database. Get a free key at fdc.nal.usda.gov",
       "required": false,
       "signupUrl": "https://fdc.nal.usda.gov/api-key-signup.html"
+    },
+    {
+      "id": "api-ninjas",
+      "name": "API-Ninjas Exercise API Key",
+      "description": "Optional fallback exercise search. Free tier includes 10k requests/month.",
+      "required": false,
+      "signupUrl": "https://api-ninjas.com/register"
     }
   ]
 }

@@ -52,7 +52,7 @@ export function createDiarySidebar(Shared: SharedDependencies) {
       })();
     }, [calories, water.ml, exercise.entries.length]);
 
-    const burnedCal = exercise.entries.reduce((sum, e) => sum + e.calories_burned, 0);
+    const burnedCal = exercise.entries.reduce((sum, e) => sum + (e.calories_burned ?? 0), 0);
     const trendDir = weightTrend < -0.05 ? 'down' : weightTrend > 0.05 ? 'up' : 'flat';
 
     return React.createElement('div', { className: 'space-y-4' },
