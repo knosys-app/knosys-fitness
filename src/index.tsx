@@ -1,8 +1,66 @@
-import type { PluginAPI, SharedDependencies } from './types';
+import type {
+  PluginAPI,
+  SharedDependencies,
+  HostPluginAPI,
+  HostSharedDependencies,
+} from './types';
 import { initStore } from './hooks/use-fitness-store';
 import { createFitnessPage } from './components/fitness-page';
 import { createSettingsPanel } from './components/settings';
 import { createDashboardWidgets } from './components/dashboard-widget';
+
+/**
+ * Knosys API v2 hands us a namespaced Shared object — primitives live
+ * under `Shared.shadcn.*`. Plugin internals here still consume a flat
+ * Shared (e.g. `const { Button } = Shared`), so we collapse the v2
+ * shape back to flat at the activation boundary. No internal code
+ * changes; the Signature design system stays exactly as-is because we
+ * keep using the same shadcn primitives underneath.
+ */
+function flattenShared(host: HostSharedDependencies): SharedDependencies {
+  return {
+    ...host.shadcn,
+    React: host.React,
+    dateFns: host.dateFns,
+    recharts: host.recharts,
+    ChartContainer: host.ChartContainer,
+    ChartTooltip: host.ChartTooltip,
+    ChartTooltipContent: host.ChartTooltipContent,
+    ChartLegend: host.ChartLegend,
+    ChartLegendContent: host.ChartLegendContent,
+    useAppData: host.hooks.useAppData,
+    useNavigate: host.useNavigate,
+    useState: host.useState,
+    useEffect: host.useEffect,
+    useCallback: host.useCallback,
+    useMemo: host.useMemo,
+    useRef: host.useRef,
+    cn: host.cn,
+    lucideIcons: host.lucideIcons,
+  };
+}
+
+/**
+ * v2 dropped `api.ui.showToast(message, type)` in favor of typed
+ * `api.ui.toast({...})`. Wrap the host so the ~17 internal call sites
+ * across this plugin can keep using the shorter signature.
+ */
+function adaptApi(host: HostPluginAPI): PluginAPI {
+  return {
+    pluginId: host.pluginId,
+    permissions: host.permissions,
+    hasPermission: host.hasPermission,
+    storage: host.storage,
+    core: host.core,
+    ui: {
+      registerRoute: host.ui.registerRoute,
+      registerSidebarItem: host.ui.registerSidebarItem,
+      registerWidget: host.ui.registerWidget,
+      registerSettingsPanel: host.ui.registerSettingsPanel,
+      showToast: (message, type) => host.ui.toast({ message, type }),
+    },
+  };
+}
 
 /**
  * Inject Google Fonts for the signature design system.
@@ -36,7 +94,9 @@ function injectSignatureFonts() {
   document.head.appendChild(sheet);
 }
 
-export function activate(api: PluginAPI, Shared: SharedDependencies) {
+export function activate(hostApi: HostPluginAPI, hostShared: HostSharedDependencies) {
+  const api = adaptApi(hostApi);
+  const Shared = flattenShared(hostShared);
   injectSignatureFonts();
   initStore(api);
 
