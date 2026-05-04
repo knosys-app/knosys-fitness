@@ -1,27 +1,36 @@
 {
+  "knosysApi": 2,
   "id": "knosys-fitness",
   "name": "Fitness",
-  "version": "1.3.0",
-  "description": "Calorie and nutrition tracking — food logging, macros, weight, exercise, and more",
-  "author": "knosys-app",
-  "authorUrl": "https://github.com/knosys-app",
-  "minKnosysVersion": "1.0.0",
+  "version": "2.0.0",
+  "description": "Calorie and nutrition tracking — food logging, macros, weight, exercise, and more.",
+  "author": {
+    "name": "Knosys",
+    "url": "https://github.com/knosys-app"
+  },
+  "compat": {
+    "knosys": ">=2.0.0 <3.0.0"
+  },
   "permissions": ["storage", "network"],
   "main": "main.js",
   "requiredApiKeys": [
     {
       "id": "usda",
       "name": "USDA FoodData Central API Key",
-      "description": "For searching the USDA food database. Get a free key at fdc.nal.usda.gov",
-      "required": false,
-      "signupUrl": "https://fdc.nal.usda.gov/api-key-signup.html"
+      "description": "For searching the USDA food database. Get a free key at fdc.nal.usda.gov.",
+      "signupUrl": "https://fdc.nal.usda.gov/api-key-signup.html",
+      "required": false
     },
     {
       "id": "api-ninjas",
       "name": "API-Ninjas Exercise API Key",
       "description": "Optional fallback exercise search. Free tier includes 10k requests/month.",
-      "required": false,
-      "signupUrl": "https://api-ninjas.com/register"
+      "signupUrl": "https://api-ninjas.com/register",
+      "required": false
     }
-  ]
+  ],
+  "categories": ["health", "tracking"],
+  "homepage": "https://github.com/knosys-app/atlas-fitness",
+  "repository": "https://github.com/knosys-app/atlas-fitness",
+  "license": "MIT"
 }
